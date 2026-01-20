@@ -11,8 +11,16 @@ import { MortgageProgressBar } from '@/components/mortgage/MortgageProgressBar';
 import { LoanSplitCard } from '@/components/mortgage/LoanSplitCard';
 import { MortgageTrendChart } from '@/components/mortgage/MortgageTrendChart';
 import { InterestTrendChart } from '@/components/mortgage/InterestTrendChart';
+import { PropertyLVRCard } from '@/components/mortgage/PropertyLVRCard';
+import { RentalPerformanceCard } from '@/components/mortgage/RentalPerformanceCard';
 
-type ModalType = 'balance' | 'rate' | 'original' | 'payment' | 'offset' | 'fixed_balance' | 'variable_balance' | 'fixed_rate' | 'variable_rate' | 'fixed_repayment' | 'variable_repayment' | null;
+type ModalType = 
+  | 'balance' | 'rate' | 'original' | 'payment' | 'offset' 
+  | 'fixed_balance' | 'variable_balance' | 'fixed_rate' | 'variable_rate' 
+  | 'fixed_repayment' | 'variable_repayment'
+  | 'property_value'
+  | 'annual_rental_income' | 'annual_rental_fees' | 'annual_council_rates' | 'annual_sewage_rates' | 'annual_improvements'
+  | null;
 
 export default function Mortgage() {
   const { mortgageData, historicalSnapshots, isLoading } = useMortgageData();
@@ -136,6 +144,48 @@ export default function Mortgage() {
           title: 'Edit Variable Loan Repayment',
           fields: [
             { key: 'variable_repayment', label: 'Monthly Repayment', value: mortgageData.loanSplits.find(l => l.type === 'variable')?.monthlyRepayment ?? 0 },
+          ],
+        };
+      case 'property_value':
+        return {
+          title: 'Edit Property Value',
+          fields: [
+            { key: 'property_value', label: 'Property Value', value: mortgageData.propertyValue },
+          ],
+        };
+      case 'annual_rental_income':
+        return {
+          title: 'Edit Annual Rental Income',
+          fields: [
+            { key: 'annual_rental_income', label: 'Annual Rental Income', value: mortgageData.annualRentalIncome },
+          ],
+        };
+      case 'annual_rental_fees':
+        return {
+          title: 'Edit Annual Rental Fees',
+          fields: [
+            { key: 'annual_rental_fees', label: 'Annual Rental Fees', value: mortgageData.annualRentalFees },
+          ],
+        };
+      case 'annual_council_rates':
+        return {
+          title: 'Edit Annual Council Rates',
+          fields: [
+            { key: 'annual_council_rates', label: 'Annual Council Rates', value: mortgageData.annualCouncilRates },
+          ],
+        };
+      case 'annual_sewage_rates':
+        return {
+          title: 'Edit Annual Sewage Rates',
+          fields: [
+            { key: 'annual_sewage_rates', label: 'Annual Sewage Rates', value: mortgageData.annualSewageRates },
+          ],
+        };
+      case 'annual_improvements':
+        return {
+          title: 'Edit Annual Improvements',
+          fields: [
+            { key: 'annual_improvements', label: 'Annual Improvements', value: mortgageData.annualImprovements },
           ],
         };
       default:
@@ -272,6 +322,34 @@ export default function Mortgage() {
             </CardContent>
           </Card>
         </div>
+
+        {/* E) Property + LVR */}
+        <PropertyLVRCard
+          propertyValue={mortgageData.propertyValue}
+          totalLoanBalance={mortgageData.totalMortgage}
+          lvr={mortgageData.lvr}
+          equity={mortgageData.equity}
+          onEditPropertyValue={() => setActiveModal('property_value')}
+        />
+
+        {/* F) Rental Performance */}
+        <RentalPerformanceCard
+          annualRentalIncome={mortgageData.annualRentalIncome}
+          annualRentalFees={mortgageData.annualRentalFees}
+          annualCouncilRates={mortgageData.annualCouncilRates}
+          annualSewageRates={mortgageData.annualSewageRates}
+          annualImprovements={mortgageData.annualImprovements}
+          netRentalIncomeAnnual={mortgageData.netRentalIncomeAnnual}
+          netRentalIncomeMonthly={mortgageData.netRentalIncomeMonthly}
+          netYieldPercent={mortgageData.netYieldPercent}
+          interestCoverageRatio={mortgageData.interestCoverageRatio}
+          netPositionAfterInterest={mortgageData.netPositionAfterInterest}
+          onEditAnnualIncome={() => setActiveModal('annual_rental_income')}
+          onEditFees={() => setActiveModal('annual_rental_fees')}
+          onEditCouncilRates={() => setActiveModal('annual_council_rates')}
+          onEditSewageRates={() => setActiveModal('annual_sewage_rates')}
+          onEditImprovements={() => setActiveModal('annual_improvements')}
+        />
 
         {/* D) Progress Bar */}
         <Card>
