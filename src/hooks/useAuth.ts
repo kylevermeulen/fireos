@@ -48,6 +48,16 @@ export function useAuth() {
     return { error };
   };
 
+  const signInWithMagicLink = async (email: string) => {
+    const { error } = await supabase.auth.signInWithOtp({
+      email,
+      options: {
+        emailRedirectTo: window.location.origin,
+      },
+    });
+    return { error };
+  };
+
   const signOut = async () => {
     const { error } = await supabase.auth.signOut();
     return { error };
@@ -60,6 +70,7 @@ export function useAuth() {
     isAuthenticated: !!user,
     signIn,
     signUp,
+    signInWithMagicLink,
     signOut,
   };
 }
