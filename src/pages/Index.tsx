@@ -1,15 +1,47 @@
+import { useState, useMemo } from 'react';
 import { AppLayout } from '@/components/layout/AppLayout';
-import { StatCard } from '@/components/dashboard/StatCard';
+import { EnhancedStatCard } from '@/components/dashboard/EnhancedStatCard';
+import { TimeRangeSelector, TimeRange, filterByTimeRange } from '@/components/dashboard/TimeRangeSelector';
+import { DataCoverageBadge } from '@/components/dashboard/DataCoverageBadge';
+import { AllocationToggle, AllocationMode } from '@/components/dashboard/AllocationToggle';
 import { NetWorthChart } from '@/components/charts/NetWorthChart';
 import { AllocationChart } from '@/components/charts/AllocationChart';
-import { formatCurrency, formatPercent, formatChange } from '@/lib/format';
-import { useWealthSnapshots } from '@/hooks/useWealthData';
-import { Wallet, TrendingUp, PiggyBank, Home, Building2, Landmark } from 'lucide-react';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { formatCurrency, formatChange } from '@/lib/format';
+import { useWealthSnapshots, useBalances } from '@/hooks/useWealthData';
+import { Wallet, TrendingUp, PiggyBank, Landmark } from 'lucide-react';
+import { Card, CardContent } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
 
 export default function Index() {
-  const { snapshots, latestSnapshot, previousSnapshot, isLoading } = useWealthSnapshots();
+  const [timeRange, setTimeRange] = useState<TimeRange>('ALL');
+  const [allocationMode, setAllocationMode] = useState<AllocationMode>('accessible');
+  
+  const { snapshots, isLoading } = useWealthSnapshots();
+  const { data: balances } = useBalances();
+
+  // Filter snapshots by time range
+  const filteredSnapshots = useMemo(() => {
+    return filterByTimeRange(snapshots, timeRange);
+  }, [snapshots, timeRange]);
+
+  // Get latest and previous from filtered data
+  const latestSnapshot = filteredSnapshots.length > 0 ? filteredSnapshots[filteredSnapshots.length - 1] : null;
+  const previousSnapshot = filteredSnapshots.length > 1 ? filteredSnapshots[filteredSnapshots.length - 2] : null;
+
+  // Check for FX warnings (balances with null AUD)
+  const fxWarnings = useMemo(() => {
+    if (!balances) return [];
+    const warnings: string[] = [];
+    const nullAudBalances = balances.filter(b => b.amount_aud === 0 && b.amount_native !== 0);
+    if (nullAudBalances.length > 0) {
+      warnings.push(`FX missing for ${nullAudBalances.length} balance(s)`);
+    }
+    return warnings;
+  }, [balances]);
+
+  // Data coverage dates
+  const firstDate = snapshots.length > 0 ? snapshots[0].date : null;
+  const lastDate = snapshots.length > 0 ? snapshots[snapshots.length - 1].date : null;
 
   if (isLoading) {
     return (
@@ -22,10 +54,8 @@ export default function Index() {
           <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
             {[1, 2, 3, 4].map((i) => (
               <Card key={i}>
-                <CardHeader className="pb-2">
-                  <Skeleton className="h-4 w-24" />
-                </CardHeader>
-                <CardContent>
+                <CardContent className="p-6">
+                  <Skeleton className="h-4 w-24 mb-2" />
                   <Skeleton className="h-8 w-32" />
                 </CardContent>
               </Card>
@@ -59,91 +89,115 @@ export default function Index() {
     );
   }
 
-  // Calculate changes
-  const netWorthChange = previousSnapshot 
+  // Calculate MoM deltas
+  const netWorthMoM = previousSnapshot
     ? formatChange(latestSnapshot.netWorth, previousSnapshot.netWorth)
     : null;
 
-  const liquidChange = previousSnapshot
-    ? formatChange(latestSnapshot.liquidWealth, previousSnapshot.liquidWealth)
+  const accessibleWealth = latestSnapshot.investmentsAud + latestSnapshot.cryptoAud;
+  const prevAccessibleWealth = previousSnapshot
+    ? previousSnapshot.investmentsAud + previousSnapshot.cryptoAud
+    : null;
+  const accessibleMoM = prevAccessibleWealth !== null
+    ? formatChange(accessibleWealth, prevAccessibleWealth)
+    : null;
+
+  const liabilitiesMoM = previousSnapshot
+    ? formatChange(latestSnapshot.totalLiabilities, previousSnapshot.totalLiabilities)
     : null;
 
   // Prepare chart data
-  const netWorthChartData = snapshots.map(s => ({
+  const netWorthChartData = filteredSnapshots.map(s => ({
     date: s.date,
     netWorth: s.netWorth,
     liquid: s.liquidWealth,
     illiquid: s.illiquidWealth,
   }));
 
-  // Allocation data for pie chart
-  const allocationData = [
-    { name: 'Cash', value: latestSnapshot.cashAud, color: 'hsl(var(--chart-1))' },
-    { name: 'Investments', value: latestSnapshot.investmentsAud, color: 'hsl(var(--chart-2))' },
-    { name: 'Retirement', value: latestSnapshot.retirementAud, color: 'hsl(var(--chart-3))' },
-    { name: 'Crypto', value: latestSnapshot.cryptoAud, color: 'hsl(var(--chart-4))' },
-    { name: 'Real Estate', value: latestSnapshot.homeValue, color: 'hsl(var(--chart-5))' },
-    { name: 'Business', value: latestSnapshot.businessValue, color: 'hsl(var(--primary))' },
-  ].filter(d => d.value > 0);
+  // Allocation data based on mode
+  const allocationData = allocationMode === 'accessible'
+    ? [
+        { name: 'Investments', value: latestSnapshot.investmentsAud, color: 'hsl(var(--chart-2))' },
+        { name: 'Crypto', value: latestSnapshot.cryptoAud, color: 'hsl(var(--chart-4))' },
+      ].filter(d => d.value > 0)
+    : [
+        { name: 'Cash', value: latestSnapshot.cashAud, color: 'hsl(var(--chart-1))' },
+        { name: 'Investments', value: latestSnapshot.investmentsAud, color: 'hsl(var(--chart-2))' },
+        { name: 'Retirement', value: latestSnapshot.retirementAud, color: 'hsl(var(--chart-3))' },
+        { name: 'Crypto', value: latestSnapshot.cryptoAud, color: 'hsl(var(--chart-4))' },
+        { name: 'Real Estate', value: latestSnapshot.homeValue, color: 'hsl(var(--chart-5))' },
+        { name: 'Business', value: latestSnapshot.businessValue, color: 'hsl(var(--primary))' },
+      ].filter(d => d.value > 0);
+
+  const allocationTitle = allocationMode === 'accessible'
+    ? 'Accessible Portfolio Allocation'
+    : 'Total Household Allocation';
 
   return (
     <AppLayout>
       <div className="space-y-6">
-        <div>
-          <h1 className="text-2xl font-bold tracking-tight">Dashboard</h1>
-          <p className="text-muted-foreground">Household wealth overview</p>
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+          <div>
+            <h1 className="text-2xl font-bold tracking-tight">Dashboard</h1>
+            <p className="text-muted-foreground">Household wealth overview</p>
+          </div>
+          <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3">
+            <TimeRangeSelector value={timeRange} onChange={setTimeRange} />
+            <DataCoverageBadge
+              firstDate={firstDate}
+              lastDate={lastDate}
+              warnings={fxWarnings}
+            />
+          </div>
         </div>
 
         <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-          <StatCard
+          <EnhancedStatCard
             title="Net Worth"
             value={formatCurrency(latestSnapshot.netWorth, 'AUD', { compact: true })}
-            change={netWorthChange ? { value: netWorthChange.formatted, isPositive: netWorthChange.isPositive } : undefined}
+            asOfDate={latestSnapshot.date}
+            includes="All assets minus all liabilities"
+            momDelta={netWorthMoM ? { value: netWorthMoM.formatted, isPositive: netWorthMoM.isPositive } : undefined}
             icon={<TrendingUp className="h-5 w-5" />}
             variant="primary"
           />
-          <StatCard
-            title="Liquid Wealth"
-            value={formatCurrency(latestSnapshot.liquidWealth, 'AUD', { compact: true })}
-            change={liquidChange ? { value: liquidChange.formatted, isPositive: liquidChange.isPositive } : undefined}
-            subtitle={`${formatPercent(latestSnapshot.liquidityPercent)} of net worth`}
+          <EnhancedStatCard
+            title="Accessible Wealth"
+            value={formatCurrency(accessibleWealth, 'AUD', { compact: true })}
+            asOfDate={latestSnapshot.date}
+            includes="Investments + Crypto only"
+            momDelta={accessibleMoM ? { value: accessibleMoM.formatted, isPositive: accessibleMoM.isPositive } : undefined}
             icon={<Wallet className="h-5 w-5" />}
           />
-          <StatCard
+          <EnhancedStatCard
             title="Total Assets"
             value={formatCurrency(latestSnapshot.totalAssets, 'AUD', { compact: true })}
+            asOfDate={latestSnapshot.date}
+            includes="Cash, investments, retirement, crypto, home, business"
             icon={<PiggyBank className="h-5 w-5" />}
           />
-          <StatCard
+          <EnhancedStatCard
             title="Total Liabilities"
             value={formatCurrency(latestSnapshot.totalLiabilities, 'AUD', { compact: true })}
-            subtitle={`Mortgage net of offset: ${formatCurrency(latestSnapshot.mortgageNetOfOffset, 'AUD', { compact: true })}`}
+            asOfDate={latestSnapshot.date}
+            includes="Mortgages + loans"
+            subtitle={`Net of offset: ${formatCurrency(latestSnapshot.mortgageNetOfOffset, 'AUD', { compact: true })}`}
+            momDelta={liabilitiesMoM ? { 
+              value: liabilitiesMoM.formatted, 
+              isPositive: liabilitiesMoM.value < 0 // Decreasing liabilities is positive
+            } : undefined}
             icon={<Landmark className="h-5 w-5" />}
           />
         </div>
 
         <div className="grid gap-6 md:grid-cols-2">
           <NetWorthChart data={netWorthChartData} title="Net Worth Trend" />
-          <AllocationChart data={allocationData} title="Asset Allocation" />
-        </div>
-
-        <div className="grid gap-4 md:grid-cols-3">
-          <StatCard
-            title="Real Estate"
-            value={formatCurrency(latestSnapshot.homeValue, 'AUD', { compact: true })}
-            icon={<Home className="h-5 w-5" />}
-          />
-          <StatCard
-            title="Business Value"
-            value={formatCurrency(latestSnapshot.businessValue, 'AUD', { compact: true })}
-            icon={<Building2 className="h-5 w-5" />}
-          />
-          <StatCard
-            title="Investments + Retirement"
-            value={formatCurrency(latestSnapshot.investmentsAud + latestSnapshot.retirementAud, 'AUD', { compact: true })}
-            subtitle={`Retirement: ${formatCurrency(latestSnapshot.retirementAud, 'AUD', { compact: true })}`}
-            icon={<TrendingUp className="h-5 w-5" />}
-          />
+          <div className="space-y-4">
+            <div className="flex items-center justify-between">
+              <AllocationToggle value={allocationMode} onChange={setAllocationMode} />
+            </div>
+            <AllocationChart data={allocationData} title={allocationTitle} />
+          </div>
         </div>
       </div>
     </AppLayout>

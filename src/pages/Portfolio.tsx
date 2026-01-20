@@ -1,15 +1,47 @@
+import { useState, useMemo } from 'react';
 import { AppLayout } from '@/components/layout/AppLayout';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { AllocationChart } from '@/components/charts/AllocationChart';
 import { Skeleton } from '@/components/ui/skeleton';
-import { formatCurrency } from '@/lib/format';
-import { useLatestBalances, useWealthSnapshots } from '@/hooks/useWealthData';
+import { formatCurrency, formatChange } from '@/lib/format';
+import { useLatestBalances, useWealthSnapshots, useBalances } from '@/hooks/useWealthData';
 import { TrendingUp, Wallet } from 'lucide-react';
 import { LiquidityTrendChart } from '@/components/charts/LiquidityTrendChart';
+import { TimeRangeSelector, TimeRange, filterByTimeRange } from '@/components/dashboard/TimeRangeSelector';
+import { DataCoverageBadge } from '@/components/dashboard/DataCoverageBadge';
+import { AllocationToggle, AllocationMode } from '@/components/dashboard/AllocationToggle';
+import { EnhancedStatCard } from '@/components/dashboard/EnhancedStatCard';
 
 export default function Portfolio() {
+  const [timeRange, setTimeRange] = useState<TimeRange>('ALL');
+  const [allocationMode, setAllocationMode] = useState<AllocationMode>('accessible');
+  
   const accountsWithBalances = useLatestBalances();
-  const { snapshots, latestSnapshot, isLoading } = useWealthSnapshots();
+  const { snapshots, isLoading } = useWealthSnapshots();
+  const { data: balances } = useBalances();
+
+  // Filter snapshots by time range
+  const filteredSnapshots = useMemo(() => {
+    return filterByTimeRange(snapshots, timeRange);
+  }, [snapshots, timeRange]);
+
+  const latestSnapshot = filteredSnapshots.length > 0 ? filteredSnapshots[filteredSnapshots.length - 1] : null;
+  const previousSnapshot = filteredSnapshots.length > 1 ? filteredSnapshots[filteredSnapshots.length - 2] : null;
+
+  // Check for FX warnings
+  const fxWarnings = useMemo(() => {
+    if (!balances) return [];
+    const warnings: string[] = [];
+    const nullAudBalances = balances.filter(b => b.amount_aud === 0 && b.amount_native !== 0);
+    if (nullAudBalances.length > 0) {
+      warnings.push(`FX missing for ${nullAudBalances.length} balance(s)`);
+    }
+    return warnings;
+  }, [balances]);
+
+  // Data coverage dates
+  const firstDate = snapshots.length > 0 ? snapshots[0].date : null;
+  const lastDate = snapshots.length > 0 ? snapshots[snapshots.length - 1].date : null;
 
   if (isLoading) {
     return (
@@ -68,31 +100,75 @@ export default function Portfolio() {
     a => a.account_type === 'retirement' && a.latestBalance
   );
 
-  // Create chart data
-  const investmentData = investmentAccounts.map((acc, i) => ({
-    name: acc.name,
-    value: acc.latestBalance?.amount_aud || 0,
-    color: `hsl(${220 + i * 30}, 70%, 50%)`,
-  }));
-
-  const cryptoData = cryptoAccounts.map((acc, i) => ({
-    name: acc.name,
-    value: acc.latestBalance?.amount_aud || 0,
-    color: `hsl(${38 + i * 40}, 80%, 50%)`,
-  }));
-
-  const retirementData = retirementAccounts.map((acc, i) => ({
-    name: acc.name,
-    value: acc.latestBalance?.amount_aud || 0,
-    color: `hsl(${280 + i * 30}, 65%, 55%)`,
-  }));
-
+  // Calculate totals
   const totalInvestments = investmentAccounts.reduce((sum, a) => sum + (a.latestBalance?.amount_aud || 0), 0);
   const totalCrypto = cryptoAccounts.reduce((sum, a) => sum + (a.latestBalance?.amount_aud || 0), 0);
   const totalRetirement = retirementAccounts.reduce((sum, a) => sum + (a.latestBalance?.amount_aud || 0), 0);
+  
+  const accessibleTotal = totalInvestments + totalCrypto;
+  const totalPortfolio = accessibleTotal + totalRetirement;
+
+  // Calculate MoM
+  const prevAccessible = previousSnapshot
+    ? previousSnapshot.investmentsAud + previousSnapshot.cryptoAud
+    : null;
+  const accessibleMoM = prevAccessible !== null
+    ? formatChange(accessibleTotal, prevAccessible)
+    : null;
+
+  // Create allocation data based on mode
+  const allocationData = allocationMode === 'accessible'
+    ? [
+        ...investmentAccounts.map((acc, i) => ({
+          name: acc.name,
+          value: acc.latestBalance?.amount_aud || 0,
+          color: `hsl(${220 + i * 30}, 70%, 50%)`,
+        })),
+        ...cryptoAccounts.map((acc, i) => ({
+          name: acc.name,
+          value: acc.latestBalance?.amount_aud || 0,
+          color: `hsl(${38 + i * 40}, 80%, 50%)`,
+        })),
+      ]
+    : [
+        ...investmentAccounts.map((acc, i) => ({
+          name: acc.name,
+          value: acc.latestBalance?.amount_aud || 0,
+          color: `hsl(${220 + i * 30}, 70%, 50%)`,
+        })),
+        ...cryptoAccounts.map((acc, i) => ({
+          name: acc.name,
+          value: acc.latestBalance?.amount_aud || 0,
+          color: `hsl(${38 + i * 40}, 80%, 50%)`,
+        })),
+        ...retirementAccounts.map((acc, i) => ({
+          name: acc.name,
+          value: acc.latestBalance?.amount_aud || 0,
+          color: `hsl(${280 + i * 30}, 65%, 55%)`,
+        })),
+        // Add home and business from snapshot
+        ...(latestSnapshot.homeValue > 0 ? [{ 
+          name: 'Real Estate', 
+          value: latestSnapshot.homeValue, 
+          color: 'hsl(var(--chart-5))' 
+        }] : []),
+        ...(latestSnapshot.businessValue > 0 ? [{ 
+          name: 'Business', 
+          value: latestSnapshot.businessValue, 
+          color: 'hsl(var(--primary))' 
+        }] : []),
+      ];
+
+  const allocationTitle = allocationMode === 'accessible'
+    ? 'Accessible Portfolio Allocation'
+    : 'Total Household Allocation';
+
+  const allocationDescription = allocationMode === 'accessible'
+    ? 'Investments + Crypto only (excludes retirement, home, business)'
+    : 'All assets including retirement, real estate, and business';
 
   // Liquidity trend data
-  const liquidityTrendData = snapshots.map(s => ({
+  const liquidityTrendData = filteredSnapshots.map(s => ({
     date: s.date,
     liquid: s.liquidWealth,
     illiquid: s.illiquidWealth,
@@ -102,67 +178,60 @@ export default function Portfolio() {
   return (
     <AppLayout>
       <div className="space-y-6">
-        <div>
-          <h1 className="text-2xl font-bold tracking-tight">Portfolio</h1>
-          <p className="text-muted-foreground">Investment accounts and crypto</p>
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+          <div>
+            <h1 className="text-2xl font-bold tracking-tight">Portfolio</h1>
+            <p className="text-muted-foreground">Investment accounts and crypto</p>
+          </div>
+          <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3">
+            <TimeRangeSelector value={timeRange} onChange={setTimeRange} />
+            <DataCoverageBadge
+              firstDate={firstDate}
+              lastDate={lastDate}
+              warnings={fxWarnings}
+            />
+          </div>
         </div>
 
         <div className="grid gap-4 md:grid-cols-3">
-          <Card>
-            <CardHeader className="pb-2">
-              <CardTitle className="text-sm font-medium text-muted-foreground">Investments</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold">{formatCurrency(totalInvestments, 'AUD', { compact: true })}</div>
-            </CardContent>
-          </Card>
-          <Card>
-            <CardHeader className="pb-2">
-              <CardTitle className="text-sm font-medium text-muted-foreground">Crypto</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold">{formatCurrency(totalCrypto, 'AUD', { compact: true })}</div>
-            </CardContent>
-          </Card>
-          <Card>
-            <CardHeader className="pb-2">
-              <CardTitle className="text-sm font-medium text-muted-foreground">Retirement</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold">{formatCurrency(totalRetirement, 'AUD', { compact: true })}</div>
-            </CardContent>
-          </Card>
+          <EnhancedStatCard
+            title="Accessible Portfolio"
+            value={formatCurrency(accessibleTotal, 'AUD', { compact: true })}
+            asOfDate={latestSnapshot.date}
+            includes="Investments + Crypto"
+            momDelta={accessibleMoM ? { value: accessibleMoM.formatted, isPositive: accessibleMoM.isPositive } : undefined}
+            icon={<Wallet className="h-5 w-5" />}
+            variant="primary"
+          />
+          <EnhancedStatCard
+            title="Retirement"
+            value={formatCurrency(totalRetirement, 'AUD', { compact: true })}
+            asOfDate={latestSnapshot.date}
+            includes="Super + Roth IRA"
+            icon={<TrendingUp className="h-5 w-5" />}
+          />
+          <EnhancedStatCard
+            title="Total Portfolio"
+            value={formatCurrency(totalPortfolio, 'AUD', { compact: true })}
+            asOfDate={latestSnapshot.date}
+            includes="Investments + Crypto + Retirement"
+            icon={<TrendingUp className="h-5 w-5" />}
+          />
         </div>
 
-        <div className="grid gap-6 lg:grid-cols-2">
-          {investmentData.length > 0 && (
-            <AllocationChart data={investmentData} title="Investment Allocation" />
-          )}
-          {cryptoData.length > 0 && (
-            <AllocationChart data={cryptoData} title="Crypto Allocation" />
-          )}
+        <div className="space-y-4">
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+            <AllocationToggle value={allocationMode} onChange={setAllocationMode} />
+            <p className="text-sm text-muted-foreground">{allocationDescription}</p>
+          </div>
+          <AllocationChart 
+            data={allocationData} 
+            title={allocationTitle}
+            total={allocationMode === 'accessible' ? accessibleTotal : totalPortfolio + latestSnapshot.homeValue + latestSnapshot.businessValue}
+          />
         </div>
-
-        {retirementData.length > 0 && (
-          <AllocationChart data={retirementData} title="Retirement Accounts" />
-        )}
 
         <LiquidityTrendChart data={liquidityTrendData} title="Liquid vs Illiquid Trend" />
-
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <TrendingUp className="h-5 w-5" />
-              Total Portfolio Value
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="text-3xl font-bold">
-              {formatCurrency(totalInvestments + totalCrypto + totalRetirement, 'AUD')}
-            </div>
-            <p className="text-muted-foreground">Investments + Crypto + Retirement combined</p>
-          </CardContent>
-        </Card>
       </div>
     </AppLayout>
   );

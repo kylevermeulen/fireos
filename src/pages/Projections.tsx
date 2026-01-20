@@ -54,16 +54,17 @@ export default function Projections() {
     illiquid: s.illiquidWealth,
   }));
 
-  // Simple projection: extend 5 years from last snapshot with growth rates
+  // Monthly projection: 60 months (5 years) from last snapshot
   const lastDate = new Date(latestSnapshot.date);
   const growthRate = 0.07; // 7% annual growth assumption
+  const monthlyGrowthRate = Math.pow(1 + growthRate, 1/12) - 1; // Convert to monthly
   
   const projectionData = [];
-  for (let i = 1; i <= 5; i++) {
+  for (let i = 1; i <= 60; i++) {
     const futureDate = new Date(lastDate);
-    futureDate.setFullYear(futureDate.getFullYear() + i);
+    futureDate.setMonth(futureDate.getMonth() + i);
     
-    const multiplier = Math.pow(1 + growthRate, i);
+    const multiplier = Math.pow(1 + monthlyGrowthRate, i);
     projectionData.push({
       date: futureDate.toISOString().split('T')[0],
       netWorth: Math.round(latestSnapshot.netWorth * multiplier),
@@ -74,45 +75,64 @@ export default function Projections() {
 
   const allData = [...historicalData, ...projectionData];
 
-  // Calculate targets
-  const year5Projection = projectionData[projectionData.length - 1];
+  // Calculate targets (at 12, 36, 60 months)
+  const year1Projection = projectionData[11]; // Month 12
+  const year3Projection = projectionData[35]; // Month 36
+  const year5Projection = projectionData[59]; // Month 60
 
   return (
     <AppLayout>
       <div className="space-y-6">
         <div>
           <h1 className="text-2xl font-bold tracking-tight">Projections</h1>
-          <p className="text-muted-foreground">5-year wealth forecast based on historical trends</p>
+          <p className="text-muted-foreground">5-year wealth forecast (monthly projections at 7% annual growth)</p>
         </div>
 
         <NetWorthChart data={allData} title="Historical + Projected Net Worth" />
 
-        <div className="grid gap-4 md:grid-cols-3">
+        <div className="grid gap-4 md:grid-cols-4">
           <Card>
-            <CardHeader>
-              <CardTitle className="text-base">Current Net Worth</CardTitle>
+            <CardHeader className="pb-2">
+              <CardTitle className="text-base">Current</CardTitle>
             </CardHeader>
             <CardContent>
               <p className="text-2xl font-bold">{formatCurrency(latestSnapshot.netWorth, 'AUD', { compact: true })}</p>
-              <p className="text-sm text-muted-foreground">as of {new Date(latestSnapshot.date).toLocaleDateString('en-AU', { month: 'short', year: 'numeric' })}</p>
-            </CardContent>
-          </Card>
-          <Card className="border-primary">
-            <CardHeader>
-              <CardTitle className="text-base">5-Year Projection</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <p className="text-2xl font-bold">{formatCurrency(year5Projection.netWorth, 'AUD', { compact: true })}</p>
-              <p className="text-sm text-muted-foreground">at 7% annual growth</p>
+              <p className="text-sm text-muted-foreground">
+                as of {new Date(latestSnapshot.date).toLocaleDateString('en-AU', { month: 'short', year: 'numeric' })}
+              </p>
             </CardContent>
           </Card>
           <Card>
-            <CardHeader>
-              <CardTitle className="text-base">Growth Target</CardTitle>
+            <CardHeader className="pb-2">
+              <CardTitle className="text-base">1-Year</CardTitle>
             </CardHeader>
             <CardContent>
-              <p className="text-2xl font-bold">+{formatCurrency(year5Projection.netWorth - latestSnapshot.netWorth, 'AUD', { compact: true })}</p>
-              <p className="text-sm text-muted-foreground">over 5 years</p>
+              <p className="text-2xl font-bold">{formatCurrency(year1Projection.netWorth, 'AUD', { compact: true })}</p>
+              <p className="text-sm text-success">
+                +{formatCurrency(year1Projection.netWorth - latestSnapshot.netWorth, 'AUD', { compact: true })}
+              </p>
+            </CardContent>
+          </Card>
+          <Card>
+            <CardHeader className="pb-2">
+              <CardTitle className="text-base">3-Year</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <p className="text-2xl font-bold">{formatCurrency(year3Projection.netWorth, 'AUD', { compact: true })}</p>
+              <p className="text-sm text-success">
+                +{formatCurrency(year3Projection.netWorth - latestSnapshot.netWorth, 'AUD', { compact: true })}
+              </p>
+            </CardContent>
+          </Card>
+          <Card className="border-primary">
+            <CardHeader className="pb-2">
+              <CardTitle className="text-base">5-Year Target</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <p className="text-2xl font-bold">{formatCurrency(year5Projection.netWorth, 'AUD', { compact: true })}</p>
+              <p className="text-sm text-success">
+                +{formatCurrency(year5Projection.netWorth - latestSnapshot.netWorth, 'AUD', { compact: true })}
+              </p>
             </CardContent>
           </Card>
         </div>
@@ -122,7 +142,7 @@ export default function Projections() {
             <CardTitle>Projection Assumptions</CardTitle>
           </CardHeader>
           <CardContent className="text-muted-foreground">
-            <p>This is a simple projection using a 7% compound annual growth rate. Future versions will include:</p>
+            <p>This projection uses a 7% compound annual growth rate applied monthly. Future versions will include:</p>
             <ul className="list-disc list-inside mt-2 space-y-1">
               <li>Different growth rates by asset class (shares, crypto, property)</li>
               <li>Conservative / Base / Aggressive scenarios</li>
