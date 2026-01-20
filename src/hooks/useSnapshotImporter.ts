@@ -75,14 +75,14 @@ function parseMonthHeader(header: string): string | null {
   return `${year}-${month}-01`;
 }
 
-// Parse numeric value from CSV cell
+// Parse numeric value from CSV cell - handles various currency formats
 function parseNumericValue(value: string): number | null {
-  if (!value || value.trim() === '' || value === '-') return null;
+  if (!value || typeof value !== 'string') return null;
   
-  // Remove currency symbols, parentheses (for negatives), and commas
-  let cleaned = value.replace(/[$,\s]/g, '');
+  let cleaned = value.trim();
+  if (cleaned === '' || cleaned === '-') return null;
   
-  // Handle parentheses for negative numbers
+  // Handle parentheses for negative numbers (accounting format)
   const isNegative = cleaned.startsWith('(') && cleaned.endsWith(')');
   if (isNegative) {
     cleaned = cleaned.slice(1, -1);
@@ -92,6 +92,57 @@ function parseNumericValue(value: string): number | null {
   const hasNegativeSign = cleaned.startsWith('-');
   if (hasNegativeSign) {
     cleaned = cleaned.slice(1);
+  }
+  
+  // Remove currency symbols and whitespace
+  cleaned = cleaned.replace(/[$Rp\s]/gi, '');
+  
+  // Determine the number format based on separators present
+  const hasComma = cleaned.includes(',');
+  const hasDot = cleaned.includes('.');
+  
+  if (hasComma && hasDot) {
+    // Both present: determine which is thousands vs decimal
+    const lastCommaIndex = cleaned.lastIndexOf(',');
+    const lastDotIndex = cleaned.lastIndexOf('.');
+    
+    if (lastCommaIndex > lastDotIndex) {
+      // Format: 1.234,56 (European/ID style) - dot is thousands, comma is decimal
+      cleaned = cleaned.replace(/\./g, '').replace(',', '.');
+    } else {
+      // Format: 1,234.56 (US style) - comma is thousands, dot is decimal
+      cleaned = cleaned.replace(/,/g, '');
+    }
+  } else if (hasComma) {
+    // Only commas: check if it looks like thousands separator or decimal
+    // If comma is followed by exactly 3 digits at end, it's thousands separator
+    // If comma is followed by 1-2 digits at end, it's decimal separator
+    const commaMatch = cleaned.match(/,(\d+)$/);
+    if (commaMatch && commaMatch[1].length === 3) {
+      // Likely thousands separator (e.g., "453,245" or "1,234,567")
+      cleaned = cleaned.replace(/,/g, '');
+    } else if (commaMatch && commaMatch[1].length <= 2) {
+      // Likely decimal separator (e.g., "1234,56")
+      cleaned = cleaned.replace(',', '.');
+    } else {
+      // Multiple commas = thousands separators (e.g., "1,234,567")
+      cleaned = cleaned.replace(/,/g, '');
+    }
+  } else if (hasDot) {
+    // Only dots: check if it looks like thousands separator (Indonesian) or decimal
+    // If dot is followed by exactly 3 digits and there might be more dots, it's thousands
+    const dotParts = cleaned.split('.');
+    if (dotParts.length > 1) {
+      const lastPart = dotParts[dotParts.length - 1];
+      // If all parts after first are exactly 3 digits, dots are thousands separators
+      // e.g., "500.000" or "1.234.567"
+      const allThreeDigits = dotParts.slice(1).every(part => part.length === 3);
+      if (allThreeDigits) {
+        // Indonesian format: dots as thousands separators
+        cleaned = cleaned.replace(/\./g, '');
+      }
+      // Otherwise, treat as decimal (e.g., "123.45")
+    }
   }
   
   const num = parseFloat(cleaned);
