@@ -13,6 +13,9 @@ import Fire from "./pages/Fire";
 import Projections from "./pages/Projections";
 import Settings from "./pages/Settings";
 import NotFound from "./pages/NotFound";
+import Mortgage from "./pages/Mortgage";
+import Retirement from "./pages/Retirement";
+import Investments from "./pages/Investments";
 
 const queryClient = new QueryClient();
 
@@ -30,6 +33,9 @@ const App = () => (
           <Route path="/cashflow" element={<ProtectedRoute><Cashflow /></ProtectedRoute>} />
           <Route path="/fire" element={<ProtectedRoute><Fire /></ProtectedRoute>} />
           <Route path="/projections" element={<ProtectedRoute><Projections /></ProtectedRoute>} />
+          <Route path="/mortgage" element={<ProtectedRoute><Mortgage /></ProtectedRoute>} />
+          <Route path="/retirement" element={<ProtectedRoute><Retirement /></ProtectedRoute>} />
+          <Route path="/investments" element={<ProtectedRoute><Investments /></ProtectedRoute>} />
           <Route path="/settings" element={<ProtectedRoute><Settings /></ProtectedRoute>} />
           <Route path="*" element={<NotFound />} />
         </Routes>

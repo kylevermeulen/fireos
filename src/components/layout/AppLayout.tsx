@@ -12,6 +12,9 @@ import {
   DollarSign,
   LogOut,
   User,
+  Home,
+  Landmark,
+  LineChart,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Sheet, SheetContent, SheetTrigger } from '@/components/ui/sheet';
@@ -26,7 +29,9 @@ interface NavItem {
 const navItems: NavItem[] = [
   { label: 'Dashboard', href: '/', icon: <LayoutDashboard className="h-5 w-5" /> },
   { label: 'Wealth', href: '/wealth', icon: <Wallet className="h-5 w-5" /> },
-  { label: 'Portfolio', href: '/portfolio', icon: <PieChart className="h-5 w-5" /> },
+  { label: 'Investments', href: '/investments', icon: <LineChart className="h-5 w-5" /> },
+  { label: 'Retirement', href: '/retirement', icon: <Landmark className="h-5 w-5" /> },
+  { label: 'Mortgage', href: '/mortgage', icon: <Home className="h-5 w-5" /> },
   { label: 'Cashflow', href: '/cashflow', icon: <DollarSign className="h-5 w-5" /> },
   { label: 'FIRE', href: '/fire', icon: <Flame className="h-5 w-5" /> },
   { label: 'Projections', href: '/projections', icon: <TrendingUp className="h-5 w-5" /> },

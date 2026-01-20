@@ -20,6 +20,7 @@ const SEED_ACCOUNTS = [
   { name: 'AustralianSuper: Kyle', institution: 'AustralianSuper', country: 'AU', currency: 'AUD' as const, account_type: 'retirement' as const, liquidity_class: 'illiquid' as const },
   { name: 'AustralianSuper: Richenda', institution: 'AustralianSuper', country: 'AU', currency: 'AUD' as const, account_type: 'retirement' as const, liquidity_class: 'illiquid' as const },
   { name: 'CoinJar', institution: 'CoinJar', country: 'AU', currency: 'AUD' as const, account_type: 'crypto' as const, liquidity_class: 'liquid' as const },
+  { name: 'Carbon Startup Investment', institution: 'Private', country: 'AU', currency: 'AUD' as const, account_type: 'investment' as const, liquidity_class: 'illiquid' as const },
   
   // Indonesia (IDR)
   { name: 'Permata', institution: 'Permata Bank', country: 'ID', currency: 'IDR' as const, account_type: 'cash' as const, liquidity_class: 'liquid' as const },
