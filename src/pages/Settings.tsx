@@ -1,17 +1,33 @@
+import { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
+import { RefreshCw, LogOut, User, Shield, Trash2 } from 'lucide-react';
+
 import { AppLayout } from '@/components/layout/AppLayout';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { RefreshCw, LogOut, User, Shield } from 'lucide-react';
+import { Badge } from '@/components/ui/badge';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from '@/components/ui/alert-dialog';
+
 import { SnapshotImporter } from '@/components/settings/SnapshotImporter';
 import { useAuth } from '@/hooks/useAuth';
-import { useNavigate } from 'react-router-dom';
 import { useToast } from '@/hooks/use-toast';
-import { Badge } from '@/components/ui/badge';
+import { supabase } from '@/integrations/supabase/client';
 
 export default function Settings() {
   const { user, signOut } = useAuth();
   const navigate = useNavigate();
   const { toast } = useToast();
+  const [isClearing, setIsClearing] = useState(false);
 
   const handleSignOut = async () => {
     const { error } = await signOut();
@@ -23,6 +39,69 @@ export default function Settings() {
       });
     } else {
       navigate('/auth');
+    }
+  };
+
+  const clearImportedSnapshotData = async () => {
+    if (!user) return;
+
+    setIsClearing(true);
+    try {
+      // Accounts -> balances
+      const { data: accounts, error: accountsError } = await supabase
+        .from('accounts')
+        .select('id')
+        .eq('user_id', user.id);
+      if (accountsError) throw accountsError;
+
+      const accountIds = (accounts ?? []).map((a) => a.id);
+      if (accountIds.length > 0) {
+        const { error } = await supabase.from('balances').delete().in('account_id', accountIds);
+        if (error) throw error;
+      }
+
+      // Liabilities -> liability_balances
+      const { data: liabilities, error: liabilitiesError } = await supabase
+        .from('liabilities')
+        .select('id')
+        .eq('user_id', user.id);
+      if (liabilitiesError) throw liabilitiesError;
+
+      const liabilityIds = (liabilities ?? []).map((l) => l.id);
+      if (liabilityIds.length > 0) {
+        const { error } = await supabase
+          .from('liability_balances')
+          .delete()
+          .in('liability_id', liabilityIds);
+        if (error) throw error;
+      }
+
+      // Valuations: delete only the snapshot-imported names (include legacy names too)
+      const importedValuationNames = [
+        'Heath Street Property',
+        'Ntegrity Business',
+        '97 Heath Street',
+        'Ntegrity owned valuation',
+      ];
+      const { error: valuationsError } = await supabase
+        .from('valuations')
+        .delete()
+        .eq('user_id', user.id)
+        .in('name', importedValuationNames);
+      if (valuationsError) throw valuationsError;
+
+      toast({
+        title: 'Snapshot data cleared',
+        description: 'Now re-import your snapshot CSV to regenerate balances and valuations.',
+      });
+    } catch (err) {
+      toast({
+        title: 'Clear failed',
+        description: err instanceof Error ? err.message : 'Unknown error',
+        variant: 'destructive',
+      });
+    } finally {
+      setIsClearing(false);
     }
   };
 
@@ -52,10 +131,10 @@ export default function Settings() {
                 <div>
                   <p className="font-medium">{user?.email}</p>
                   <div className="flex items-center gap-2">
-                    <Badge variant="default" className="text-xs">Authenticated</Badge>
-                    <span className="text-xs text-muted-foreground">
-                      ID: {user?.id.slice(0, 8)}...
-                    </span>
+                    <Badge variant="default" className="text-xs">
+                      Authenticated
+                    </Badge>
+                    <span className="text-xs text-muted-foreground">ID: {user?.id?.slice(0, 8)}...</span>
                   </div>
                 </div>
               </div>
@@ -67,8 +146,44 @@ export default function Settings() {
           </CardContent>
         </Card>
 
-        {/* Snapshot Importer - only works when logged in (which we are, due to ProtectedRoute) */}
+        {/* Snapshot Importer */}
         <SnapshotImporter />
+
+        {/* Reset snapshot-imported data */}
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Trash2 className="h-5 w-5" />
+              Clear Imported Snapshot Data
+            </CardTitle>
+            <CardDescription>
+              Deletes your imported balances, liability snapshots, and the two imported valuations so you can re-import cleanly.
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <AlertDialog>
+              <AlertDialogTrigger asChild>
+                <Button variant="destructive" disabled={!user || isClearing}>
+                  {isClearing ? 'Clearing…' : 'Clear Snapshot Data'}
+                </Button>
+              </AlertDialogTrigger>
+              <AlertDialogContent>
+                <AlertDialogHeader>
+                  <AlertDialogTitle>Clear imported snapshot data?</AlertDialogTitle>
+                  <AlertDialogDescription>
+                    This will remove your imported snapshot balances and liability balances. You can restore them by importing your CSV again.
+                  </AlertDialogDescription>
+                </AlertDialogHeader>
+                <AlertDialogFooter>
+                  <AlertDialogCancel disabled={isClearing}>Cancel</AlertDialogCancel>
+                  <AlertDialogAction onClick={clearImportedSnapshotData} disabled={!user || isClearing}>
+                    Confirm Clear
+                  </AlertDialogAction>
+                </AlertDialogFooter>
+              </AlertDialogContent>
+            </AlertDialog>
+          </CardContent>
+        </Card>
 
         <Card>
           <CardHeader>
@@ -76,7 +191,10 @@ export default function Settings() {
             <CardDescription>Fetch latest FX rates and asset prices</CardDescription>
           </CardHeader>
           <CardContent>
-            <Button variant="secondary"><RefreshCw className="mr-2 h-4 w-4" />Refresh All Prices</Button>
+            <Button variant="secondary">
+              <RefreshCw className="mr-2 h-4 w-4" />
+              Refresh All Prices
+            </Button>
           </CardContent>
         </Card>
       </div>
