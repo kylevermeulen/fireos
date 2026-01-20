@@ -286,6 +286,33 @@ export type Database = {
           },
         ]
       }
+      mortgage_overrides: {
+        Row: {
+          created_at: string
+          field_name: string
+          field_value: Json
+          id: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          field_name: string
+          field_value: Json
+          id?: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          field_name?: string
+          field_value?: Json
+          id?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       prices: {
         Row: {
           created_at: string

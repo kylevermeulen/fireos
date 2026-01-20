@@ -1,151 +1,36 @@
-import { useMemo } from 'react';
+import { useState } from 'react';
 import { AppLayout } from '@/components/layout/AppLayout';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { useLiabilities, useLiabilityBalances, useAccounts, useBalances } from '@/hooks/useWealthData';
 import { Skeleton } from '@/components/ui/skeleton';
 import { formatCompactCurrency, formatDate } from '@/lib/format';
-import { Home, Wallet, TrendingDown, DollarSign } from 'lucide-react';
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from '@/components/ui/table';
+import { Home, DollarSign } from 'lucide-react';
+import { useMortgageData } from '@/hooks/useMortgageData';
+import { EditableValue } from '@/components/mortgage/EditableValue';
+import { MortgageEditModal } from '@/components/mortgage/MortgageEditModal';
+import { MortgageProgressBar } from '@/components/mortgage/MortgageProgressBar';
+import { LoanSplitCard } from '@/components/mortgage/LoanSplitCard';
+import { MortgageTrendChart } from '@/components/mortgage/MortgageTrendChart';
+import { InterestTrendChart } from '@/components/mortgage/InterestTrendChart';
 
-// Weekly rent constant
-const WEEKLY_RENT = 1300;
+type ModalType = 'balance' | 'rate' | 'original' | 'payment' | 'offset' | 'fixed_balance' | 'variable_balance' | 'fixed_rate' | 'variable_rate' | 'fixed_repayment' | 'variable_repayment' | null;
 
 export default function Mortgage() {
-  const { data: liabilities, isLoading: liabilitiesLoading } = useLiabilities();
-  const { data: liabilityBalances, isLoading: liabilityBalancesLoading } = useLiabilityBalances();
-  const { data: accounts, isLoading: accountsLoading } = useAccounts();
-  const { data: balances, isLoading: balancesLoading } = useBalances();
-
-  const isLoading = liabilitiesLoading || liabilityBalancesLoading || accountsLoading || balancesLoading;
-
-  const mortgageData = useMemo(() => {
-    if (!liabilities || !liabilityBalances || !accounts || !balances) {
-      return null;
-    }
-
-    // Get mortgage liabilities
-    const mortgages = liabilities.filter(
-      l => l.liability_type === 'fixed_mortgage' || l.liability_type === 'variable_mortgage'
-    );
-
-    // Get latest balance for each mortgage
-    const latestByLiability = new Map<string, { balance: number; date: string }>();
-    for (const lb of liabilityBalances) {
-      const existing = latestByLiability.get(lb.liability_id);
-      if (!existing || lb.balance_date > existing.date) {
-        latestByLiability.set(lb.liability_id, { balance: lb.balance, date: lb.balance_date });
-      }
-    }
-
-    // Get offset account
-    const offsetAccount = accounts.find(a => a.account_type === 'offset');
-    let offsetBalance = 0;
-    let offsetDate = '';
-    
-    if (offsetAccount) {
-      const offsetBalances = balances.filter(b => b.account_id === offsetAccount.id);
-      if (offsetBalances.length > 0) {
-        const latestOffset = offsetBalances[offsetBalances.length - 1];
-        offsetBalance = latestOffset.amount_aud;
-        offsetDate = latestOffset.balance_date;
-      }
-    }
-
-    // Calculate mortgage details
-    let fixedBalance = 0;
-    let fixedRate = 0;
-    let variableBalance = 0;
-    let variableRate = 0;
-    let latestDate = '';
-
-    const mortgageDetails: Array<{
-      name: string;
-      type: string;
-      balance: number;
-      rate: number;
-      date: string;
-    }> = [];
-
-    for (const mortgage of mortgages) {
-      const balanceData = latestByLiability.get(mortgage.id);
-      if (!balanceData) continue;
-
-      if (balanceData.date > latestDate) {
-        latestDate = balanceData.date;
-      }
-
-      const detail = {
-        name: mortgage.name,
-        type: mortgage.liability_type === 'fixed_mortgage' ? 'Fixed' : 'Variable',
-        balance: balanceData.balance,
-        rate: mortgage.interest_rate || 0,
-        date: balanceData.date,
-      };
-
-      mortgageDetails.push(detail);
-
-      if (mortgage.liability_type === 'fixed_mortgage') {
-        fixedBalance = balanceData.balance;
-        fixedRate = mortgage.interest_rate || 0;
-      } else {
-        variableBalance = balanceData.balance;
-        variableRate = mortgage.interest_rate || 0;
-      }
-    }
-
-    const totalMortgage = fixedBalance + variableBalance;
-    const mortgageNetOfOffset = totalMortgage - offsetBalance;
-
-    // Calculate monthly interest estimates
-    const fixedMonthlyInterest = (fixedBalance * (fixedRate / 100)) / 12;
-    const variableMonthlyInterest = ((variableBalance - offsetBalance) * (variableRate / 100)) / 12;
-    const totalMonthlyInterest = fixedMonthlyInterest + Math.max(0, variableMonthlyInterest);
-
-    // Interest without offset (for comparison)
-    const variableMonthlyInterestWithoutOffset = (variableBalance * (variableRate / 100)) / 12;
-    const totalMonthlyInterestWithoutOffset = fixedMonthlyInterest + variableMonthlyInterestWithoutOffset;
-    const monthlySavingsFromOffset = totalMonthlyInterestWithoutOffset - totalMonthlyInterest;
-
-    // Rental income
-    const monthlyRent = WEEKLY_RENT * 52 / 12;
-
-    return {
-      totalMortgage,
-      offsetBalance,
-      offsetDate,
-      mortgageNetOfOffset,
-      fixedBalance,
-      fixedRate,
-      variableBalance,
-      variableRate,
-      totalMonthlyInterest,
-      monthlySavingsFromOffset,
-      weeklyRent: WEEKLY_RENT,
-      monthlyRent,
-      mortgageDetails,
-      latestDate,
-    };
-  }, [liabilities, liabilityBalances, accounts, balances]);
+  const { mortgageData, historicalSnapshots, isLoading } = useMortgageData();
+  const [activeModal, setActiveModal] = useState<ModalType>(null);
 
   if (isLoading) {
     return (
       <AppLayout>
         <div className="space-y-6">
-          <div>
-            <h1 className="text-2xl font-bold tracking-tight">Mortgage</h1>
-            <p className="text-muted-foreground">Property loan details</p>
-          </div>
+          <h1 className="text-2xl font-bold tracking-tight">Mortgage</h1>
           <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
             {[...Array(4)].map((_, i) => (
-              <Skeleton key={i} className="h-32" />
+              <Skeleton key={i} className="h-28" />
             ))}
+          </div>
+          <div className="grid gap-4 md:grid-cols-2">
+            <Skeleton className="h-40" />
+            <Skeleton className="h-40" />
           </div>
         </div>
       </AppLayout>
@@ -156,10 +41,7 @@ export default function Mortgage() {
     return (
       <AppLayout>
         <div className="space-y-6">
-          <div>
-            <h1 className="text-2xl font-bold tracking-tight">Mortgage</h1>
-            <p className="text-muted-foreground">Property loan details</p>
-          </div>
+          <h1 className="text-2xl font-bold tracking-tight">Mortgage</h1>
           <Card>
             <CardContent className="flex flex-col items-center justify-center py-12">
               <Home className="h-12 w-12 text-muted-foreground mb-4" />
@@ -174,157 +56,257 @@ export default function Mortgage() {
     );
   }
 
+  // Modal field configurations
+  const getModalFields = () => {
+    switch (activeModal) {
+      case 'balance':
+        return {
+          title: 'Edit Loan Balances',
+          fields: [
+            { key: 'fixed_balance', label: 'Fixed Loan Balance', value: mortgageData.fixedBalance, liabilityId: mortgageData.fixedMortgageId },
+            { key: 'variable_balance', label: 'Variable Loan Balance', value: mortgageData.variableBalance, liabilityId: mortgageData.variableMortgageId },
+          ],
+        };
+      case 'rate':
+        return {
+          title: 'Edit Interest Rates',
+          fields: [
+            { key: 'fixed_rate', label: 'Fixed Rate', value: mortgageData.fixedRate, suffix: '%', liabilityId: mortgageData.fixedMortgageId },
+            { key: 'variable_rate', label: 'Variable Rate', value: mortgageData.variableRate, suffix: '%', liabilityId: mortgageData.variableMortgageId },
+          ],
+        };
+      case 'original':
+        return {
+          title: 'Edit Original Loan Amount',
+          fields: [
+            { key: 'original_loan', label: 'Original Loan', value: mortgageData.originalLoan },
+          ],
+        };
+      case 'payment':
+        return {
+          title: 'Edit Monthly Payment',
+          fields: [
+            { key: 'monthly_payment', label: 'Monthly Required Payment', value: mortgageData.monthlyRequiredPayment },
+          ],
+        };
+      case 'offset':
+        return {
+          title: 'Edit Offset Balance',
+          fields: [
+            { key: 'offset_balance', label: 'Offset Balance', value: mortgageData.offsetBalance },
+          ],
+        };
+      case 'fixed_balance':
+        return {
+          title: 'Edit Fixed Loan Balance',
+          fields: [
+            { key: 'fixed_balance', label: 'Fixed Loan Balance', value: mortgageData.fixedBalance, liabilityId: mortgageData.fixedMortgageId },
+          ],
+        };
+      case 'variable_balance':
+        return {
+          title: 'Edit Variable Loan Balance',
+          fields: [
+            { key: 'variable_balance', label: 'Variable Loan Balance', value: mortgageData.variableBalance, liabilityId: mortgageData.variableMortgageId },
+          ],
+        };
+      case 'fixed_rate':
+        return {
+          title: 'Edit Fixed Rate',
+          fields: [
+            { key: 'fixed_rate', label: 'Fixed Rate', value: mortgageData.fixedRate, suffix: '%', liabilityId: mortgageData.fixedMortgageId },
+          ],
+        };
+      case 'variable_rate':
+        return {
+          title: 'Edit Variable Rate',
+          fields: [
+            { key: 'variable_rate', label: 'Variable Rate', value: mortgageData.variableRate, suffix: '%', liabilityId: mortgageData.variableMortgageId },
+          ],
+        };
+      case 'fixed_repayment':
+        return {
+          title: 'Edit Fixed Loan Repayment',
+          fields: [
+            { key: 'fixed_repayment', label: 'Monthly Repayment', value: mortgageData.loanSplits.find(l => l.type === 'fixed')?.monthlyRepayment ?? 0 },
+          ],
+        };
+      case 'variable_repayment':
+        return {
+          title: 'Edit Variable Loan Repayment',
+          fields: [
+            { key: 'variable_repayment', label: 'Monthly Repayment', value: mortgageData.loanSplits.find(l => l.type === 'variable')?.monthlyRepayment ?? 0 },
+          ],
+        };
+      default:
+        return null;
+    }
+  };
+
+  const modalConfig = getModalFields();
+
   return (
     <AppLayout>
       <div className="space-y-6">
-        <div>
-          <h1 className="text-2xl font-bold tracking-tight">Mortgage</h1>
-          <p className="text-muted-foreground">Property loan details</p>
+        <h1 className="text-2xl font-bold tracking-tight">Mortgage</h1>
+
+        {/* A) Mortgage Parameters Card */}
+        <Card>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-base font-medium text-muted-foreground">
+              Mortgage parameters (click any value to edit)
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-6">
+              <div>
+                <p className="text-xs text-muted-foreground mb-1">Loan Balance</p>
+                <EditableValue
+                  value={formatCompactCurrency(mortgageData.totalMortgage)}
+                  onClick={() => setActiveModal('balance')}
+                  size="lg"
+                />
+              </div>
+              <div>
+                <p className="text-xs text-muted-foreground mb-1">Weighted Rate</p>
+                <EditableValue
+                  value={`${mortgageData.weightedRate.toFixed(2)}%`}
+                  onClick={() => setActiveModal('rate')}
+                  size="lg"
+                />
+              </div>
+              <div>
+                <p className="text-xs text-muted-foreground mb-1">Original Loan</p>
+                <EditableValue
+                  value={formatCompactCurrency(mortgageData.originalLoan)}
+                  onClick={() => setActiveModal('original')}
+                  size="lg"
+                />
+              </div>
+              <div>
+                <p className="text-xs text-muted-foreground mb-1">Monthly Payment</p>
+                <EditableValue
+                  value={formatCompactCurrency(mortgageData.monthlyRequiredPayment)}
+                  onClick={() => setActiveModal('payment')}
+                  size="lg"
+                />
+              </div>
+            </div>
+
+            {/* Headline KPIs */}
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mt-6 pt-6 border-t">
+              <div className="text-center p-3 rounded-lg bg-muted/50">
+                <p className="text-xs text-muted-foreground mb-1">Total Loan</p>
+                <p className="text-xl font-bold">{formatCompactCurrency(mortgageData.totalMortgage)}</p>
+              </div>
+              <div className="text-center p-3 rounded-lg bg-muted/50">
+                <p className="text-xs text-muted-foreground mb-1">Offset</p>
+                <p className="text-xl font-bold">{formatCompactCurrency(mortgageData.offsetBalance)}</p>
+              </div>
+              <div className="text-center p-3 rounded-lg bg-muted/50">
+                <p className="text-xs text-muted-foreground mb-1">Net Mortgage</p>
+                <p className="text-xl font-bold">{formatCompactCurrency(mortgageData.mortgageNetOfOffset)}</p>
+              </div>
+              <div className="text-center p-3 rounded-lg bg-muted/50">
+                <p className="text-xs text-muted-foreground mb-1">Est. Interest/mo</p>
+                <p className="text-xl font-bold">{formatCompactCurrency(mortgageData.totalMonthlyInterest)}</p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* B) Split Loans Module */}
+        <div className="grid gap-4 md:grid-cols-2">
+          {mortgageData.loanSplits.map(loan => (
+            <LoanSplitCard
+              key={loan.id}
+              type={loan.type}
+              balance={loan.balance}
+              rate={loan.rate}
+              monthlyRepayment={loan.monthlyRepayment}
+              estimatedPayoffDate={loan.estimatedPayoffDate}
+              monthlyInterest={loan.monthlyInterest}
+              onEditBalance={() => setActiveModal(loan.type === 'fixed' ? 'fixed_balance' : 'variable_balance')}
+              onEditRate={() => setActiveModal(loan.type === 'fixed' ? 'fixed_rate' : 'variable_rate')}
+              onEditRepayment={() => setActiveModal(loan.type === 'fixed' ? 'fixed_repayment' : 'variable_repayment')}
+            />
+          ))}
         </div>
 
-        {/* Top stat cards */}
+        {/* C) Offset + Rental Summary */}
         <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
           <Card>
             <CardContent className="p-4">
-              <div className="flex items-start justify-between">
-                <div>
-                  <p className="text-sm font-medium text-muted-foreground">Mortgage Net of Offset</p>
-                  <p className="text-2xl font-bold">{formatCompactCurrency(mortgageData.mortgageNetOfOffset)}</p>
-                  <p className="text-xs text-muted-foreground mt-1">
-                    As of {formatDate(mortgageData.latestDate, 'short')}
-                  </p>
-                </div>
-                <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-muted">
-                  <Home className="h-5 w-5 text-muted-foreground" />
-                </div>
-              </div>
+              <p className="text-xs text-muted-foreground mb-1">Offset Amount</p>
+              <EditableValue
+                value={formatCompactCurrency(mortgageData.offsetBalance)}
+                onClick={() => setActiveModal('offset')}
+                size="md"
+              />
             </CardContent>
           </Card>
-
+          <Card>
+            <CardContent className="p-4">
+              <p className="text-xs text-muted-foreground mb-1">Net Mortgage</p>
+              <p className="text-2xl font-bold">{formatCompactCurrency(mortgageData.mortgageNetOfOffset)}</p>
+            </CardContent>
+          </Card>
+          <Card>
+            <CardContent className="p-4">
+              <p className="text-xs text-muted-foreground mb-1">Offset Savings</p>
+              <p className="text-2xl font-bold text-green-600">{formatCompactCurrency(mortgageData.monthlySavingsFromOffset)}/mo</p>
+            </CardContent>
+          </Card>
           <Card>
             <CardContent className="p-4">
               <div className="flex items-start justify-between">
                 <div>
-                  <p className="text-sm font-medium text-muted-foreground">Total Mortgage</p>
-                  <p className="text-2xl font-bold">{formatCompactCurrency(mortgageData.totalMortgage)}</p>
-                  <p className="text-xs text-muted-foreground mt-1">
-                    Offset: {formatCompactCurrency(mortgageData.offsetBalance)}
-                  </p>
-                </div>
-                <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-muted">
-                  <Wallet className="h-5 w-5 text-muted-foreground" />
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardContent className="p-4">
-              <div className="flex items-start justify-between">
-                <div>
-                  <p className="text-sm font-medium text-muted-foreground">Est. Monthly Interest</p>
-                  <p className="text-2xl font-bold">{formatCompactCurrency(mortgageData.totalMonthlyInterest)}</p>
-                  <p className="text-xs text-success mt-1">
-                    Saving {formatCompactCurrency(mortgageData.monthlySavingsFromOffset)}/mo
-                  </p>
-                </div>
-                <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-muted">
-                  <TrendingDown className="h-5 w-5 text-muted-foreground" />
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardContent className="p-4">
-              <div className="flex items-start justify-between">
-                <div>
-                  <p className="text-sm font-medium text-muted-foreground">Rental Income</p>
+                  <p className="text-xs text-muted-foreground mb-1">Rental Income</p>
                   <p className="text-2xl font-bold">{formatCompactCurrency(mortgageData.monthlyRent)}/mo</p>
-                  <p className="text-xs text-muted-foreground mt-1">
-                    ${mortgageData.weeklyRent.toLocaleString()}/week
-                  </p>
+                  <p className="text-xs text-muted-foreground mt-1">${mortgageData.weeklyRent.toLocaleString()}/week</p>
                 </div>
-                <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-muted">
-                  <DollarSign className="h-5 w-5 text-muted-foreground" />
+                <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-muted">
+                  <DollarSign className="h-4 w-4 text-muted-foreground" />
                 </div>
               </div>
             </CardContent>
           </Card>
         </div>
 
-        {/* Loan Split Table */}
+        {/* D) Progress Bar */}
         <Card>
-          <CardHeader>
-            <CardTitle>Loan Split</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Loan Type</TableHead>
-                  <TableHead className="text-right">Balance</TableHead>
-                  <TableHead className="text-right">Interest Rate</TableHead>
-                  <TableHead className="text-right">Monthly Interest</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                <TableRow>
-                  <TableCell className="font-medium">Fixed</TableCell>
-                  <TableCell className="text-right">{formatCompactCurrency(mortgageData.fixedBalance)}</TableCell>
-                  <TableCell className="text-right">{mortgageData.fixedRate.toFixed(2)}%</TableCell>
-                  <TableCell className="text-right">
-                    {formatCompactCurrency((mortgageData.fixedBalance * (mortgageData.fixedRate / 100)) / 12)}
-                  </TableCell>
-                </TableRow>
-                <TableRow>
-                  <TableCell className="font-medium">Variable</TableCell>
-                  <TableCell className="text-right">{formatCompactCurrency(mortgageData.variableBalance)}</TableCell>
-                  <TableCell className="text-right">{mortgageData.variableRate.toFixed(2)}%</TableCell>
-                  <TableCell className="text-right">
-                    {formatCompactCurrency(Math.max(0, ((mortgageData.variableBalance - mortgageData.offsetBalance) * (mortgageData.variableRate / 100)) / 12))}
-                  </TableCell>
-                </TableRow>
-                <TableRow className="font-medium bg-muted/50">
-                  <TableCell>Total</TableCell>
-                  <TableCell className="text-right">{formatCompactCurrency(mortgageData.totalMortgage)}</TableCell>
-                  <TableCell className="text-right">—</TableCell>
-                  <TableCell className="text-right">{formatCompactCurrency(mortgageData.totalMonthlyInterest)}</TableCell>
-                </TableRow>
-              </TableBody>
-            </Table>
+          <CardContent className="p-4">
+            <MortgageProgressBar
+              originalLoan={mortgageData.originalLoan}
+              netMortgage={mortgageData.mortgageNetOfOffset}
+              percentPaidOff={mortgageData.percentPaidOff}
+            />
           </CardContent>
         </Card>
 
-        {/* Offset Impact */}
-        <Card>
-          <CardHeader>
-            <CardTitle>Offset Impact</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="grid gap-4 md:grid-cols-3">
-              <div className="text-center p-4 rounded-lg bg-muted/50">
-                <p className="text-sm text-muted-foreground mb-1">Offset Balance</p>
-                <p className="text-xl font-bold">{formatCompactCurrency(mortgageData.offsetBalance)}</p>
-              </div>
-              <div className="text-center p-4 rounded-lg bg-muted/50">
-                <p className="text-sm text-muted-foreground mb-1">Monthly Savings</p>
-                <p className="text-xl font-bold text-success">{formatCompactCurrency(mortgageData.monthlySavingsFromOffset)}</p>
-              </div>
-              <div className="text-center p-4 rounded-lg bg-muted/50">
-                <p className="text-sm text-muted-foreground mb-1">Annual Savings</p>
-                <p className="text-xl font-bold text-success">{formatCompactCurrency(mortgageData.monthlySavingsFromOffset * 12)}</p>
-              </div>
-            </div>
-            <p className="text-sm text-muted-foreground mt-4">
-              Your offset account reduces the effective principal on your variable loan from{' '}
-              {formatCompactCurrency(mortgageData.variableBalance)} to{' '}
-              {formatCompactCurrency(Math.max(0, mortgageData.variableBalance - mortgageData.offsetBalance))},
-              saving you approximately {formatCompactCurrency(mortgageData.monthlySavingsFromOffset * 12)} per year in interest.
-            </p>
-          </CardContent>
-        </Card>
+        {/* D) Charts */}
+        <div className="grid gap-4 md:grid-cols-2">
+          <MortgageTrendChart data={historicalSnapshots} />
+          <InterestTrendChart data={historicalSnapshots} />
+        </div>
+
+        {/* Footer note */}
+        {mortgageData.latestDate && (
+          <p className="text-xs text-muted-foreground text-center">
+            Data as of {formatDate(mortgageData.latestDate, 'medium')}
+          </p>
+        )}
       </div>
+
+      {/* Edit Modal */}
+      {modalConfig && (
+        <MortgageEditModal
+          open={activeModal !== null}
+          onOpenChange={(open) => !open && setActiveModal(null)}
+          title={modalConfig.title}
+          fields={modalConfig.fields}
+        />
+      )}
     </AppLayout>
   );
 }
