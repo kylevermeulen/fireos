@@ -1,46 +1,88 @@
 import { useMemo, useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
-import { formatCurrency, formatPercent } from '@/lib/format';
+import { formatCompactCurrency, formatPercent, getCountryFlag, getCountryName } from '@/lib/format';
 import { useAccounts, useBalances, useLiabilities, useLiabilityBalances, useValuations } from '@/hooks/useWealthData';
 import { TimeRange, filterByTimeRange } from '@/components/dashboard/TimeRangeSelector';
 import { MonthlyChangeChart } from '@/components/dashboard/MonthlyChangeChart';
-import { ChevronDown, ChevronUp, ArrowUpDown, TrendingUp, TrendingDown } from 'lucide-react';
+import { ChevronDown, ChevronRight } from 'lucide-react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 
 interface AccountsMovementProps {
   timeRange: TimeRange;
 }
 
-type CategoryType = 'Cash' | 'Offset' | 'Investments' | 'Crypto' | 'Retirement' | 'Home' | 'Business' | 'Liabilities';
+// Unified asset class labels (no separate Crypto/Offset)
+type AssetClass = 'Cash' | 'Investments' | 'Retirement' | 'Property' | 'Business' | 'Liabilities';
 
 interface MovementRow {
   id: string;
   name: string;
-  category: CategoryType;
+  assetClass: AssetClass;
   country?: string;
+  groupKey: string; // AU, US, ID, Assets, Liabilities
   startValue: number;
   endValue: number;
   delta: number;
   percentChange: number | null;
 }
 
-function getCategoryFromAccountType(accountType: string): CategoryType {
+type SortOption = 'abs-delta' | 'gain' | 'loss' | 'end-balance';
+
+function getAssetClassFromAccountType(accountType: string): AssetClass {
   switch (accountType) {
-    case 'cash': return 'Cash';
-    case 'offset': return 'Offset';
-    case 'investment': return 'Investments';
-    case 'crypto': return 'Crypto';
-    case 'retirement': return 'Retirement';
-    default: return 'Cash';
+    case 'cash':
+    case 'offset': // Offset → Cash
+      return 'Cash';
+    case 'investment':
+    case 'crypto': // Crypto → Investments
+      return 'Investments';
+    case 'retirement':
+      return 'Retirement';
+    default:
+      return 'Cash';
+  }
+}
+
+function getGroupKey(row: { country?: string; assetClass: AssetClass }): string {
+  if (row.assetClass === 'Property' || row.assetClass === 'Business') {
+    return 'Assets';
+  }
+  if (row.assetClass === 'Liabilities') {
+    return 'Liabilities';
+  }
+  return row.country || 'Other';
+}
+
+const GROUP_ORDER = ['AU', 'US', 'ID', 'Assets', 'Liabilities'];
+
+function getGroupLabel(groupKey: string): string {
+  if (groupKey === 'Assets') return 'Assets (Property & Business)';
+  if (groupKey === 'Liabilities') return 'Liabilities';
+  return `${getCountryFlag(groupKey)} ${getCountryName(groupKey)}`;
+}
+
+function sortRows(rows: MovementRow[], sortOption: SortOption): MovementRow[] {
+  const sorted = [...rows];
+  switch (sortOption) {
+    case 'abs-delta':
+      return sorted.sort((a, b) => Math.abs(b.delta) - Math.abs(a.delta));
+    case 'gain':
+      return sorted.sort((a, b) => b.delta - a.delta);
+    case 'loss':
+      return sorted.sort((a, b) => a.delta - b.delta);
+    case 'end-balance':
+      return sorted.sort((a, b) => Math.abs(b.endValue) - Math.abs(a.endValue));
+    default:
+      return sorted;
   }
 }
 
 export function AccountsMovement({ timeRange }: AccountsMovementProps) {
-  const [showAll, setShowAll] = useState(false);
-  const [groupBy, setGroupBy] = useState<'none' | 'category' | 'country'>('none');
+  const [sortOption, setSortOption] = useState<SortOption>('abs-delta');
+  const [expandedGroups, setExpandedGroups] = useState<Set<string>>(new Set(GROUP_ORDER));
   
   const { data: accounts } = useAccounts();
   const { data: balances } = useBalances();
@@ -103,12 +145,14 @@ export function AccountsMovement({ timeRange }: AccountsMovementProps) {
       const endValue = getBalanceAtDate(account.id, endDate);
       const delta = endValue - startValue;
       const percentChange = startValue !== 0 ? delta / startValue : null;
+      const assetClass = getAssetClassFromAccountType(account.account_type);
 
       rows.push({
         id: account.id,
         name: account.name,
-        category: getCategoryFromAccountType(account.account_type),
+        assetClass,
         country: account.country,
+        groupKey: getGroupKey({ country: account.country, assetClass }),
         startValue,
         endValue,
         delta,
@@ -126,7 +170,8 @@ export function AccountsMovement({ timeRange }: AccountsMovementProps) {
       rows.push({
         id: liability.id,
         name: liability.name,
-        category: 'Liabilities',
+        assetClass: 'Liabilities',
+        groupKey: 'Liabilities',
         startValue,
         endValue,
         delta,
@@ -134,14 +179,15 @@ export function AccountsMovement({ timeRange }: AccountsMovementProps) {
       });
     }
 
-    // Valuations (home, business)
+    // Valuations (home → Property, business → Business)
     const homeStart = getValuationAtDate('home', startDate);
     const homeEnd = getValuationAtDate('home', endDate);
     if (homeStart > 0 || homeEnd > 0) {
       rows.push({
         id: 'valuation-home',
         name: 'Home',
-        category: 'Home',
+        assetClass: 'Property',
+        groupKey: 'Assets',
         startValue: homeStart,
         endValue: homeEnd,
         delta: homeEnd - homeStart,
@@ -154,8 +200,9 @@ export function AccountsMovement({ timeRange }: AccountsMovementProps) {
     if (businessStart > 0 || businessEnd > 0) {
       rows.push({
         id: 'valuation-business',
-        name: 'Business',
-        category: 'Business',
+        name: 'Ntegrity',
+        assetClass: 'Business',
+        groupKey: 'Assets',
         startValue: businessStart,
         endValue: businessEnd,
         delta: businessEnd - businessStart,
@@ -163,18 +210,13 @@ export function AccountsMovement({ timeRange }: AccountsMovementProps) {
       });
     }
 
-    // Sort by absolute delta descending
-    rows.sort((a, b) => Math.abs(b.delta) - Math.abs(a.delta));
-
-    // Calculate monthly deltas by category
+    // Calculate monthly deltas by asset class (using unified labels)
     const monthlyDeltas: Array<{
       date: string;
       Cash: number;
-      Offset: number;
       Investments: number;
-      Crypto: number;
       Retirement: number;
-      Home: number;
+      Property: number;
       Business: number;
       Liabilities: number;
     }> = [];
@@ -183,13 +225,11 @@ export function AccountsMovement({ timeRange }: AccountsMovementProps) {
       const prevDate = filteredDates[i - 1];
       const currDate = filteredDates[i];
       
-      const categoryDeltas: Record<CategoryType, number> = {
+      const classDeltas: Record<AssetClass, number> = {
         Cash: 0,
-        Offset: 0,
         Investments: 0,
-        Crypto: 0,
         Retirement: 0,
-        Home: 0,
+        Property: 0,
         Business: 0,
         Liabilities: 0,
       };
@@ -198,24 +238,24 @@ export function AccountsMovement({ timeRange }: AccountsMovementProps) {
       for (const account of accounts) {
         const prevBal = getBalanceAtDate(account.id, prevDate);
         const currBal = getBalanceAtDate(account.id, currDate);
-        const category = getCategoryFromAccountType(account.account_type);
-        categoryDeltas[category] += currBal - prevBal;
+        const assetClass = getAssetClassFromAccountType(account.account_type);
+        classDeltas[assetClass] += currBal - prevBal;
       }
 
       // Liabilities
       for (const liability of liabilities) {
         const prevBal = getLiabilityBalanceAtDate(liability.id, prevDate);
         const currBal = getLiabilityBalanceAtDate(liability.id, currDate);
-        categoryDeltas.Liabilities += currBal - prevBal;
+        classDeltas.Liabilities += currBal - prevBal;
       }
 
       // Valuations
-      categoryDeltas.Home = getValuationAtDate('home', currDate) - getValuationAtDate('home', prevDate);
-      categoryDeltas.Business = getValuationAtDate('business', currDate) - getValuationAtDate('business', prevDate);
+      classDeltas.Property = getValuationAtDate('home', currDate) - getValuationAtDate('home', prevDate);
+      classDeltas.Business = getValuationAtDate('business', currDate) - getValuationAtDate('business', prevDate);
 
       monthlyDeltas.push({
         date: currDate,
-        ...categoryDeltas,
+        ...classDeltas,
       });
     }
 
@@ -226,127 +266,87 @@ export function AccountsMovement({ timeRange }: AccountsMovementProps) {
     };
   }, [accounts, balances, liabilities, liabilityBalances, valuations, timeRange]);
 
-  // Filter and group
-  const displayRows = useMemo(() => {
-    let rows = movementRows;
-
-    if (groupBy === 'category') {
-      const grouped = new Map<CategoryType, MovementRow>();
-      for (const row of movementRows) {
-        const existing = grouped.get(row.category);
-        if (existing) {
-          existing.startValue += row.startValue;
-          existing.endValue += row.endValue;
-          existing.delta += row.delta;
-        } else {
-          grouped.set(row.category, {
-            id: row.category,
-            name: row.category,
-            category: row.category,
-            startValue: row.startValue,
-            endValue: row.endValue,
-            delta: row.delta,
-            percentChange: null,
-          });
-        }
-      }
-      // Recalculate percent change
-      rows = Array.from(grouped.values()).map(r => ({
-        ...r,
-        percentChange: r.startValue !== 0 ? r.delta / r.startValue : null,
-      }));
-      rows.sort((a, b) => Math.abs(b.delta) - Math.abs(a.delta));
-    } else if (groupBy === 'country') {
-      const grouped = new Map<string, MovementRow>();
-      for (const row of movementRows) {
-        const key = row.country || row.category;
-        const existing = grouped.get(key);
-        if (existing) {
-          existing.startValue += row.startValue;
-          existing.endValue += row.endValue;
-          existing.delta += row.delta;
-        } else {
-          grouped.set(key, {
-            id: key,
-            name: key,
-            category: row.category,
-            country: row.country,
-            startValue: row.startValue,
-            endValue: row.endValue,
-            delta: row.delta,
-            percentChange: null,
-          });
-        }
-      }
-      rows = Array.from(grouped.values()).map(r => ({
-        ...r,
-        percentChange: r.startValue !== 0 ? r.delta / r.startValue : null,
-      }));
-      rows.sort((a, b) => Math.abs(b.delta) - Math.abs(a.delta));
+  // Group rows by groupKey and sort within groups
+  const groupedRows = useMemo(() => {
+    const groups = new Map<string, MovementRow[]>();
+    
+    for (const row of movementRows) {
+      const existing = groups.get(row.groupKey) || [];
+      existing.push(row);
+      groups.set(row.groupKey, existing);
     }
 
-    if (!showAll) {
-      return rows.slice(0, 10);
+    // Sort rows within each group
+    for (const [key, rows] of groups) {
+      groups.set(key, sortRows(rows, sortOption));
     }
-    return rows;
-  }, [movementRows, showAll, groupBy]);
 
-  const getCategoryColor = (category: CategoryType): string => {
-    const colors: Record<CategoryType, string> = {
-      Cash: 'bg-chart-1/20 text-chart-1',
-      Offset: 'bg-chart-1/20 text-chart-1',
-      Investments: 'bg-chart-2/20 text-chart-2',
-      Crypto: 'bg-chart-4/20 text-chart-4',
-      Retirement: 'bg-chart-3/20 text-chart-3',
-      Home: 'bg-chart-5/20 text-chart-5',
-      Business: 'bg-primary/20 text-primary',
-      Liabilities: 'bg-destructive/20 text-destructive',
-    };
-    return colors[category] || 'bg-muted text-muted-foreground';
+    return groups;
+  }, [movementRows, sortOption]);
+
+  // Calculate group totals
+  const groupTotals = useMemo(() => {
+    const totals = new Map<string, number>();
+    for (const [key, rows] of groupedRows) {
+      const total = rows.reduce((sum, r) => {
+        // For liabilities, show the absolute value
+        return sum + (key === 'Liabilities' ? -r.endValue : r.endValue);
+      }, 0);
+      totals.set(key, key === 'Liabilities' ? -total : total);
+    }
+    return totals;
+  }, [groupedRows]);
+
+  const toggleGroup = (groupKey: string) => {
+    setExpandedGroups(prev => {
+      const next = new Set(prev);
+      if (next.has(groupKey)) {
+        next.delete(groupKey);
+      } else {
+        next.add(groupKey);
+      }
+      return next;
+    });
+  };
+
+  const getDeltaColor = (delta: number, isLiability: boolean): string => {
+    if (delta === 0) return 'text-muted-foreground';
+    // For liabilities, decrease (negative delta) is good
+    if (isLiability) {
+      return delta < 0 ? 'text-green-600' : 'text-red-600';
+    }
+    return delta > 0 ? 'text-green-600' : 'text-red-600';
   };
 
   if (movementRows.length === 0) {
     return null;
   }
 
+  const orderedGroups = GROUP_ORDER.filter(g => groupedRows.has(g));
+
   return (
     <div className="space-y-6">
       <Card>
         <CardHeader className="pb-4">
           <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-            <CardTitle className="text-lg font-semibold">Accounts Movement</CardTitle>
-            <div className="flex flex-wrap gap-2">
-              <div className="flex rounded-md border">
-                <Button
-                  variant={groupBy === 'none' ? 'secondary' : 'ghost'}
-                  size="sm"
-                  className="rounded-r-none text-xs"
-                  onClick={() => setGroupBy('none')}
-                >
-                  Individual
-                </Button>
-                <Button
-                  variant={groupBy === 'category' ? 'secondary' : 'ghost'}
-                  size="sm"
-                  className="rounded-none border-x text-xs"
-                  onClick={() => setGroupBy('category')}
-                >
-                  Category
-                </Button>
-                <Button
-                  variant={groupBy === 'country' ? 'secondary' : 'ghost'}
-                  size="sm"
-                  className="rounded-l-none text-xs"
-                  onClick={() => setGroupBy('country')}
-                >
-                  Country
-                </Button>
-              </div>
+            <div>
+              <CardTitle className="text-lg font-semibold">Accounts Movement</CardTitle>
+              <p className="text-sm text-muted-foreground mt-1">
+                {dateRange.start} → {dateRange.end}
+              </p>
             </div>
+            <Select value={sortOption} onValueChange={(v) => setSortOption(v as SortOption)}>
+              <SelectTrigger className="w-[180px]">
+                <SelectValue placeholder="Sort by..." />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="abs-delta">Largest absolute Δ</SelectItem>
+                <SelectItem value="gain">Largest gain</SelectItem>
+                <SelectItem value="loss">Largest loss</SelectItem>
+                <SelectItem value="end-balance">Largest end balance</SelectItem>
+              </SelectContent>
+            </Select>
           </div>
-          <p className="text-sm text-muted-foreground mt-1">
-            Changes from {dateRange.start} to {dateRange.end}
-          </p>
         </CardHeader>
         <CardContent>
           <Tabs defaultValue="table" className="space-y-4">
@@ -355,83 +355,77 @@ export function AccountsMovement({ timeRange }: AccountsMovementProps) {
               <TabsTrigger value="chart">Monthly Deltas</TabsTrigger>
             </TabsList>
             
-            <TabsContent value="table">
-              <div className="rounded-md border">
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>Account / Asset</TableHead>
-                      <TableHead className="hidden sm:table-cell">Category</TableHead>
-                      <TableHead className="text-right">Start (AUD)</TableHead>
-                      <TableHead className="text-right">End (AUD)</TableHead>
-                      <TableHead className="text-right">Δ (AUD)</TableHead>
-                      <TableHead className="text-right hidden sm:table-cell">%</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {displayRows.map((row) => (
-                      <TableRow key={row.id}>
-                        <TableCell className="font-medium">
-                          <div className="flex items-center gap-2">
-                            {row.delta > 0 ? (
-                              <TrendingUp className="h-4 w-4 text-green-500 flex-shrink-0" />
-                            ) : row.delta < 0 ? (
-                              <TrendingDown className="h-4 w-4 text-red-500 flex-shrink-0" />
-                            ) : (
-                              <ArrowUpDown className="h-4 w-4 text-muted-foreground flex-shrink-0" />
-                            )}
-                            <span className="truncate">{row.name}</span>
-                          </div>
-                        </TableCell>
-                        <TableCell className="hidden sm:table-cell">
-                          <Badge variant="secondary" className={getCategoryColor(row.category)}>
-                            {row.category}
-                          </Badge>
-                        </TableCell>
-                        <TableCell className="text-right tabular-nums">
-                          {formatCurrency(row.startValue, 'AUD', { compact: true })}
-                        </TableCell>
-                        <TableCell className="text-right tabular-nums">
-                          {formatCurrency(row.endValue, 'AUD', { compact: true })}
-                        </TableCell>
-                        <TableCell className={`text-right tabular-nums font-medium ${
-                          row.category === 'Liabilities' 
-                            ? row.delta < 0 ? 'text-green-600' : row.delta > 0 ? 'text-red-600' : ''
-                            : row.delta > 0 ? 'text-green-600' : row.delta < 0 ? 'text-red-600' : ''
-                        }`}>
-                          {row.delta >= 0 ? '+' : ''}{formatCurrency(row.delta, 'AUD', { compact: true })}
-                        </TableCell>
-                        <TableCell className="text-right tabular-nums hidden sm:table-cell">
-                          {row.percentChange !== null ? formatPercent(row.percentChange, 1) : '—'}
-                        </TableCell>
-                      </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
+            <TabsContent value="table" className="space-y-2">
+              {/* Table Header */}
+              <div className="grid grid-cols-12 gap-2 px-3 py-2 text-xs font-medium text-muted-foreground border-b">
+                <div className="col-span-4">Account</div>
+                <div className="col-span-2 text-right">Start</div>
+                <div className="col-span-2 text-right">End</div>
+                <div className="col-span-2 text-right">Δ</div>
+                <div className="col-span-2 text-right">%</div>
               </div>
-              
-              {movementRows.length > 10 && (
-                <div className="mt-4 flex justify-center">
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => setShowAll(!showAll)}
-                    className="text-muted-foreground"
+
+              {/* Grouped Sections */}
+              {orderedGroups.map((groupKey) => {
+                const rows = groupedRows.get(groupKey) || [];
+                const total = groupTotals.get(groupKey) || 0;
+                const isExpanded = expandedGroups.has(groupKey);
+                const isLiability = groupKey === 'Liabilities';
+
+                return (
+                  <Collapsible
+                    key={groupKey}
+                    open={isExpanded}
+                    onOpenChange={() => toggleGroup(groupKey)}
                   >
-                    {showAll ? (
-                      <>
-                        <ChevronUp className="h-4 w-4 mr-1" />
-                        Show Top 10
-                      </>
-                    ) : (
-                      <>
-                        <ChevronDown className="h-4 w-4 mr-1" />
-                        Show All ({movementRows.length})
-                      </>
-                    )}
-                  </Button>
-                </div>
-              )}
+                    <CollapsibleTrigger asChild>
+                      <button className="w-full flex items-center justify-between px-3 py-2 bg-muted/50 hover:bg-muted rounded-md transition-colors">
+                        <div className="flex items-center gap-2">
+                          {isExpanded ? (
+                            <ChevronDown className="h-4 w-4 text-muted-foreground" />
+                          ) : (
+                            <ChevronRight className="h-4 w-4 text-muted-foreground" />
+                          )}
+                          <span className="font-medium text-sm">{getGroupLabel(groupKey)}</span>
+                          <span className="text-xs text-muted-foreground">({rows.length})</span>
+                        </div>
+                        <span className="font-medium text-sm tabular-nums">
+                          {formatCompactCurrency(Math.abs(total), 'AUD')}
+                        </span>
+                      </button>
+                    </CollapsibleTrigger>
+                    <CollapsibleContent>
+                      <div className="mt-1 space-y-px">
+                        {rows.map((row) => (
+                          <div
+                            key={row.id}
+                            className="grid grid-cols-12 gap-2 px-3 py-2 text-sm hover:bg-muted/30 rounded-sm"
+                          >
+                            <div className="col-span-4 flex items-center gap-2 min-w-0">
+                              <span className="truncate font-medium">{row.name}</span>
+                              <span className="text-xs text-muted-foreground shrink-0">
+                                {row.assetClass}
+                              </span>
+                            </div>
+                            <div className="col-span-2 text-right tabular-nums text-muted-foreground">
+                              {formatCompactCurrency(row.startValue, 'AUD')}
+                            </div>
+                            <div className="col-span-2 text-right tabular-nums">
+                              {formatCompactCurrency(row.endValue, 'AUD')}
+                            </div>
+                            <div className={`col-span-2 text-right tabular-nums font-medium ${getDeltaColor(row.delta, isLiability)}`}>
+                              {row.delta >= 0 ? '+' : ''}{formatCompactCurrency(row.delta, 'AUD')}
+                            </div>
+                            <div className="col-span-2 text-right tabular-nums text-muted-foreground">
+                              {row.percentChange !== null ? formatPercent(row.percentChange, 1) : '—'}
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </CollapsibleContent>
+                  </Collapsible>
+                );
+              })}
             </TabsContent>
             
             <TabsContent value="chart">
