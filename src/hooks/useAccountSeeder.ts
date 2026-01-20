@@ -9,7 +9,7 @@ const SEED_ACCOUNTS = [
   { name: 'Chase: Checking', institution: 'Chase', country: 'US', currency: 'USD' as const, account_type: 'cash' as const, liquidity_class: 'liquid' as const },
   { name: 'Wealthfront: Personal', institution: 'Wealthfront', country: 'US', currency: 'USD' as const, account_type: 'investment' as const, liquidity_class: 'liquid' as const },
   { name: 'RWBaird', institution: 'RW Baird', country: 'US', currency: 'USD' as const, account_type: 'investment' as const, liquidity_class: 'liquid' as const },
-  { name: 'Vanguard', institution: 'Vanguard', country: 'US', currency: 'USD' as const, account_type: 'investment' as const, liquidity_class: 'liquid' as const },
+  { name: 'Vanguard', institution: 'Vanguard', country: 'US', currency: 'USD' as const, account_type: 'retirement' as const, liquidity_class: 'illiquid' as const },
   { name: 'Wealthfront: Roth', institution: 'Wealthfront', country: 'US', currency: 'USD' as const, account_type: 'retirement' as const, liquidity_class: 'illiquid' as const },
   { name: 'Coinbase', institution: 'Coinbase', country: 'US', currency: 'USD' as const, account_type: 'crypto' as const, liquidity_class: 'liquid' as const },
   
