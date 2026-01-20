@@ -1,18 +1,8 @@
 import { AppLayout } from '@/components/layout/AppLayout';
-import { StatCard } from '@/components/dashboard/StatCard';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Progress } from '@/components/ui/progress';
-import { formatCurrency, formatPercent } from '@/lib/format';
-import { Flame, Target, Calendar, TrendingUp } from 'lucide-react';
+import { AlertTriangle } from 'lucide-react';
 
 export default function Fire() {
-  const annualSpend = 210564;
-  const fireMultiple = 25;
-  const fireNumber = annualSpend * fireMultiple;
-  const investableAssets = 1062972;
-  const fireProgress = investableAssets / fireNumber;
-  const fireRunway = investableAssets / annualSpend;
-
   return (
     <AppLayout>
       <div className="space-y-6">
@@ -21,45 +11,27 @@ export default function Fire() {
           <p className="text-muted-foreground">Financial Independence, Retire Early</p>
         </div>
 
-        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-          <StatCard
-            title="Annual Spend"
-            value={formatCurrency(annualSpend, 'AUD', { compact: true })}
-            subtitle="Rolling 12-month"
-            icon={<TrendingUp className="h-5 w-5" />}
-          />
-          <StatCard
-            title="FIRE Number"
-            value={formatCurrency(fireNumber, 'AUD', { compact: true })}
-            subtitle={`${fireMultiple}x annual spend`}
-            icon={<Target className="h-5 w-5" />}
-            variant="primary"
-          />
-          <StatCard
-            title="Investable Assets"
-            value={formatCurrency(investableAssets, 'AUD', { compact: true })}
-            subtitle="Liquid wealth"
-            icon={<Flame className="h-5 w-5" />}
-          />
-          <StatCard
-            title="FIRE Runway"
-            value={`${fireRunway.toFixed(1)} years`}
-            subtitle="At current spend rate"
-            icon={<Calendar className="h-5 w-5" />}
-          />
-        </div>
-
         <Card>
           <CardHeader>
-            <CardTitle>FIRE Progress</CardTitle>
+            <CardTitle className="flex items-center gap-2">
+              <AlertTriangle className="h-5 w-5 text-amber-500" />
+              Not Configured Yet
+            </CardTitle>
           </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="flex justify-between text-sm">
-              <span>{formatCurrency(investableAssets, 'AUD')}</span>
-              <span className="text-muted-foreground">{formatCurrency(fireNumber, 'AUD')}</span>
-            </div>
-            <Progress value={fireProgress * 100} className="h-4" />
-            <p className="text-center text-2xl font-bold">{formatPercent(fireProgress)} to FIRE</p>
+          <CardContent>
+            <p className="text-muted-foreground">
+              FIRE calculations require accurate annual spending data which is not included in the monthly balance snapshots.
+            </p>
+            <p className="text-muted-foreground mt-2">
+              To enable this feature, you need to:
+            </p>
+            <ul className="list-disc list-inside mt-2 text-muted-foreground space-y-1">
+              <li>Import transaction history to calculate actual spending</li>
+              <li>Or manually enter your estimated annual expenses</li>
+            </ul>
+            <p className="text-sm text-muted-foreground mt-4 italic">
+              Once spending data is available, FIRE progress will be calculated as: Investable Assets / (Annual Spend × FIRE Multiple)
+            </p>
           </CardContent>
         </Card>
       </div>
