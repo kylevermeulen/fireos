@@ -1,0 +1,367 @@
+import { useState, useMemo } from 'react';
+import { AppLayout } from '@/components/layout/AppLayout';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { useAccounts, useBalances } from '@/hooks/useWealthData';
+import { Skeleton } from '@/components/ui/skeleton';
+import { formatCompactCurrency, formatDate, formatPercent } from '@/lib/format';
+import { PieChart, TrendingUp, TrendingDown, Briefcase, Bitcoin, LineChart } from 'lucide-react';
+import { TimeRangeSelector, TimeRange, filterByTimeRange } from '@/components/dashboard/TimeRangeSelector';
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from '@/components/ui/table';
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
+import { ChevronDown } from 'lucide-react';
+
+type InvestmentCategory = 'public' | 'crypto' | 'private';
+
+interface AccountWithBalance {
+  id: string;
+  name: string;
+  institution: string;
+  country: string;
+  category: InvestmentCategory;
+  balance: number;
+  delta: number;
+  date: string;
+}
+
+export default function Investments() {
+  const [timeRange, setTimeRange] = useState<TimeRange>('1Y');
+  const [expandedGroups, setExpandedGroups] = useState<Set<InvestmentCategory>>(
+    new Set(['public', 'crypto', 'private'])
+  );
+  const { data: accounts, isLoading: accountsLoading } = useAccounts();
+  const { data: balances, isLoading: balancesLoading } = useBalances();
+
+  const isLoading = accountsLoading || balancesLoading;
+
+  const toggleGroup = (group: InvestmentCategory) => {
+    setExpandedGroups(prev => {
+      const next = new Set(prev);
+      if (next.has(group)) {
+        next.delete(group);
+      } else {
+        next.add(group);
+      }
+      return next;
+    });
+  };
+
+  const investmentData = useMemo(() => {
+    if (!accounts || !balances) {
+      return null;
+    }
+
+    // Get investment accounts (investment + crypto, exclude retirement)
+    // We include crypto under Investments as per requirements
+    const investmentAccounts = accounts.filter(
+      a => a.account_type === 'investment' || a.account_type === 'crypto'
+    );
+
+    if (investmentAccounts.length === 0) {
+      return null;
+    }
+
+    // Create balance snapshots with dates
+    const accountIds = new Set(investmentAccounts.map(a => a.id));
+    const relevantBalances = balances.filter(b => accountIds.has(b.account_id));
+
+    // Get all unique dates
+    const dateSet = new Set(relevantBalances.map(b => b.balance_date));
+    const allDates = Array.from(dateSet).sort();
+
+    // Build snapshots per date
+    const snapshots = allDates.map(date => {
+      const dateBalances = relevantBalances.filter(b => b.balance_date === date);
+      const total = dateBalances.reduce((sum, b) => sum + b.amount_aud, 0);
+      return { date, total };
+    });
+
+    // Filter by time range
+    const filteredSnapshots = filterByTimeRange(snapshots, timeRange);
+
+    // Get start and end values
+    const startSnapshot = filteredSnapshots[0];
+    const endSnapshot = filteredSnapshots[filteredSnapshots.length - 1];
+
+    const totalBalance = endSnapshot?.total || 0;
+    const startBalance = startSnapshot?.total || 0;
+    const delta = totalBalance - startBalance;
+    const deltaPercent = startBalance > 0 ? delta / startBalance : 0;
+    const latestDate = endSnapshot?.date || '';
+
+    // Get latest and start balance per account
+    const latestByAccount = new Map<string, { balance: number; date: string }>();
+    const startByAccount = new Map<string, { balance: number; date: string }>();
+
+    for (const balance of relevantBalances) {
+      if (endSnapshot && balance.balance_date === endSnapshot.date) {
+        latestByAccount.set(balance.account_id, { balance: balance.amount_aud, date: balance.balance_date });
+      }
+      if (startSnapshot && balance.balance_date === startSnapshot.date) {
+        startByAccount.set(balance.account_id, { balance: balance.amount_aud, date: balance.balance_date });
+      }
+    }
+
+    // Build account details with categories
+    const accountDetails: AccountWithBalance[] = investmentAccounts.map(account => {
+      const latest = latestByAccount.get(account.id);
+      const start = startByAccount.get(account.id);
+      const balance = latest?.balance || 0;
+      const startBalance = start?.balance || 0;
+      const accountDelta = balance - startBalance;
+
+      // Categorize: crypto accounts → 'crypto', all others → 'public'
+      // Note: Carbon startup will be added as 'private' via seeder
+      let category: InvestmentCategory = 'public';
+      if (account.account_type === 'crypto') {
+        category = 'crypto';
+      }
+      // Check for private investments by liquidity_class
+      if (account.liquidity_class === 'illiquid' && account.account_type === 'investment') {
+        category = 'private';
+      }
+
+      return {
+        id: account.id,
+        name: account.name,
+        institution: account.institution,
+        country: account.country,
+        category,
+        balance,
+        delta: accountDelta,
+        date: latest?.date || '',
+      };
+    }).sort((a, b) => b.balance - a.balance);
+
+    // Group by category
+    const byCategory = {
+      public: accountDetails.filter(a => a.category === 'public'),
+      crypto: accountDetails.filter(a => a.category === 'crypto'),
+      private: accountDetails.filter(a => a.category === 'private'),
+    };
+
+    // Calculate totals by category
+    const publicTotal = byCategory.public.reduce((sum, a) => sum + a.balance, 0);
+    const cryptoTotal = byCategory.crypto.reduce((sum, a) => sum + a.balance, 0);
+    const privateTotal = byCategory.private.reduce((sum, a) => sum + a.balance, 0);
+
+    const publicDelta = byCategory.public.reduce((sum, a) => sum + a.delta, 0);
+    const cryptoDelta = byCategory.crypto.reduce((sum, a) => sum + a.delta, 0);
+    const privateDelta = byCategory.private.reduce((sum, a) => sum + a.delta, 0);
+
+    return {
+      totalBalance,
+      delta,
+      deltaPercent,
+      latestDate,
+      byCategory,
+      categoryTotals: {
+        public: { balance: publicTotal, delta: publicDelta },
+        crypto: { balance: cryptoTotal, delta: cryptoDelta },
+        private: { balance: privateTotal, delta: privateDelta },
+      },
+    };
+  }, [accounts, balances, timeRange]);
+
+  if (isLoading) {
+    return (
+      <AppLayout>
+        <div className="space-y-6">
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+            <div>
+              <h1 className="text-2xl font-bold tracking-tight">Investments</h1>
+              <p className="text-muted-foreground">Public markets, crypto & private investments</p>
+            </div>
+          </div>
+          <div className="grid gap-4 md:grid-cols-2">
+            {[...Array(2)].map((_, i) => (
+              <Skeleton key={i} className="h-32" />
+            ))}
+          </div>
+        </div>
+      </AppLayout>
+    );
+  }
+
+  if (!investmentData) {
+    return (
+      <AppLayout>
+        <div className="space-y-6">
+          <div>
+            <h1 className="text-2xl font-bold tracking-tight">Investments</h1>
+            <p className="text-muted-foreground">Public markets, crypto & private investments</p>
+          </div>
+          <Card>
+            <CardContent className="flex flex-col items-center justify-center py-12">
+              <PieChart className="h-12 w-12 text-muted-foreground mb-4" />
+              <h3 className="text-lg font-medium mb-2">No Investment Accounts</h3>
+              <p className="text-muted-foreground text-center max-w-md">
+                Add investment accounts to track your portfolio.
+              </p>
+            </CardContent>
+          </Card>
+        </div>
+      </AppLayout>
+    );
+  }
+
+  const isPositive = investmentData.delta >= 0;
+
+  const categoryConfig: Record<InvestmentCategory, { label: string; icon: React.ReactNode }> = {
+    public: { label: 'Public Markets', icon: <LineChart className="h-4 w-4" /> },
+    crypto: { label: 'Crypto', icon: <Bitcoin className="h-4 w-4" /> },
+    private: { label: 'Private Investments', icon: <Briefcase className="h-4 w-4" /> },
+  };
+
+  const renderCategorySection = (category: InvestmentCategory) => {
+    const accounts = investmentData.byCategory[category];
+    const totals = investmentData.categoryTotals[category];
+    const config = categoryConfig[category];
+    const isExpanded = expandedGroups.has(category);
+
+    if (accounts.length === 0 && totals.balance === 0) {
+      return null;
+    }
+
+    const isTotalPositive = totals.delta >= 0;
+
+    return (
+      <Collapsible key={category} open={isExpanded} onOpenChange={() => toggleGroup(category)}>
+        <CollapsibleTrigger className="w-full">
+          <div className="flex items-center justify-between p-4 hover:bg-muted/50 rounded-lg transition-colors">
+            <div className="flex items-center gap-3">
+              <ChevronDown className={`h-4 w-4 transition-transform ${isExpanded ? '' : '-rotate-90'}`} />
+              <div className="flex items-center gap-2">
+                {config.icon}
+                <span className="font-medium">{config.label}</span>
+              </div>
+              <span className="text-xs text-muted-foreground">({accounts.length})</span>
+            </div>
+            <div className="flex items-center gap-4">
+              <span className={`text-sm ${isTotalPositive ? 'text-success' : 'text-destructive'}`}>
+                {isTotalPositive ? '+' : ''}{formatCompactCurrency(totals.delta)}
+              </span>
+              <span className="font-medium">{formatCompactCurrency(totals.balance)}</span>
+            </div>
+          </div>
+        </CollapsibleTrigger>
+        <CollapsibleContent>
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>Account</TableHead>
+                <TableHead className="text-right">Balance (AUD)</TableHead>
+                <TableHead className="text-right">Change ({timeRange})</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {accounts.map((account) => {
+                const isAccountPositive = account.delta >= 0;
+                return (
+                  <TableRow key={account.id}>
+                    <TableCell>
+                      <div className="flex items-center gap-2">
+                        <span className="font-medium">{account.name}</span>
+                        <span className="text-xs text-muted-foreground">Investments</span>
+                      </div>
+                    </TableCell>
+                    <TableCell className="text-right font-medium">
+                      {formatCompactCurrency(account.balance)}
+                    </TableCell>
+                    <TableCell className={`text-right ${isAccountPositive ? 'text-success' : 'text-destructive'}`}>
+                      {isAccountPositive ? '+' : ''}{formatCompactCurrency(account.delta)}
+                    </TableCell>
+                  </TableRow>
+                );
+              })}
+            </TableBody>
+          </Table>
+        </CollapsibleContent>
+      </Collapsible>
+    );
+  };
+
+  return (
+    <AppLayout>
+      <div className="space-y-6">
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+          <div>
+            <h1 className="text-2xl font-bold tracking-tight">Investments</h1>
+            <p className="text-muted-foreground">Public markets, crypto & private investments</p>
+          </div>
+          <TimeRangeSelector value={timeRange} onChange={setTimeRange} />
+        </div>
+
+        {/* Top stat cards */}
+        <div className="grid gap-4 md:grid-cols-2">
+          <Card>
+            <CardContent className="p-4">
+              <div className="flex items-start justify-between">
+                <div>
+                  <p className="text-sm font-medium text-muted-foreground">Total Investments</p>
+                  <p className="text-2xl font-bold">{formatCompactCurrency(investmentData.totalBalance)}</p>
+                  <p className="text-xs text-muted-foreground mt-1">
+                    As of {formatDate(investmentData.latestDate, 'short')}
+                  </p>
+                </div>
+                <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-muted">
+                  <PieChart className="h-5 w-5 text-muted-foreground" />
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardContent className="p-4">
+              <div className="flex items-start justify-between">
+                <div>
+                  <p className="text-sm font-medium text-muted-foreground">Change ({timeRange})</p>
+                  <p className={`text-2xl font-bold ${isPositive ? 'text-success' : 'text-destructive'}`}>
+                    {isPositive ? '+' : ''}{formatCompactCurrency(investmentData.delta)}
+                  </p>
+                  <p className={`text-xs mt-1 ${isPositive ? 'text-success' : 'text-destructive'}`}>
+                    {isPositive ? '+' : ''}{formatPercent(investmentData.deltaPercent)}
+                  </p>
+                </div>
+                <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-muted">
+                  {isPositive ? (
+                    <TrendingUp className="h-5 w-5 text-success" />
+                  ) : (
+                    <TrendingDown className="h-5 w-5 text-destructive" />
+                  )}
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+
+        {/* Grouped Sections */}
+        <Card>
+          <CardHeader>
+            <CardTitle>Investment Accounts</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-2">
+            {renderCategorySection('public')}
+            {renderCategorySection('crypto')}
+            {renderCategorySection('private')}
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardContent className="p-4">
+            <p className="text-sm text-muted-foreground">
+              Investments include public market holdings (ETFs, shares), cryptocurrency, and private investments.
+              Retirement accounts are tracked separately and excluded from these totals.
+            </p>
+          </CardContent>
+        </Card>
+      </div>
+    </AppLayout>
+  );
+}
