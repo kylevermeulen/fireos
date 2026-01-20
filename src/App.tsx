@@ -3,6 +3,8 @@ import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
+import { ProtectedRoute } from "@/components/auth/ProtectedRoute";
+import Auth from "./pages/Auth";
 import Index from "./pages/Index";
 import Wealth from "./pages/Wealth";
 import Portfolio from "./pages/Portfolio";
@@ -21,13 +23,14 @@ const App = () => (
       <Sonner />
       <BrowserRouter>
         <Routes>
-          <Route path="/" element={<Index />} />
-          <Route path="/wealth" element={<Wealth />} />
-          <Route path="/portfolio" element={<Portfolio />} />
-          <Route path="/cashflow" element={<Cashflow />} />
-          <Route path="/fire" element={<Fire />} />
-          <Route path="/projections" element={<Projections />} />
-          <Route path="/settings" element={<Settings />} />
+          <Route path="/auth" element={<Auth />} />
+          <Route path="/" element={<ProtectedRoute><Index /></ProtectedRoute>} />
+          <Route path="/wealth" element={<ProtectedRoute><Wealth /></ProtectedRoute>} />
+          <Route path="/portfolio" element={<ProtectedRoute><Portfolio /></ProtectedRoute>} />
+          <Route path="/cashflow" element={<ProtectedRoute><Cashflow /></ProtectedRoute>} />
+          <Route path="/fire" element={<ProtectedRoute><Fire /></ProtectedRoute>} />
+          <Route path="/projections" element={<ProtectedRoute><Projections /></ProtectedRoute>} />
+          <Route path="/settings" element={<ProtectedRoute><Settings /></ProtectedRoute>} />
           <Route path="*" element={<NotFound />} />
         </Routes>
       </BrowserRouter>

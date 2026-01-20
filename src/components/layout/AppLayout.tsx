@@ -1,5 +1,5 @@
 import { ReactNode, useState } from 'react';
-import { Link, useLocation } from 'react-router-dom';
+import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { cn } from '@/lib/utils';
 import {
   LayoutDashboard,
@@ -9,11 +9,13 @@ import {
   Flame,
   Settings,
   Menu,
-  X,
   DollarSign,
+  LogOut,
+  User,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Sheet, SheetContent, SheetTrigger } from '@/components/ui/sheet';
+import { useAuth } from '@/hooks/useAuth';
 
 interface NavItem {
   label: string;
@@ -37,8 +39,14 @@ interface AppLayoutProps {
 
 export function AppLayout({ children }: AppLayoutProps) {
   const location = useLocation();
+  const navigate = useNavigate();
   const [mobileOpen, setMobileOpen] = useState(false);
+  const { user, signOut } = useAuth();
 
+  const handleSignOut = async () => {
+    await signOut();
+    navigate('/auth');
+  };
   const NavLinks = ({ onClick }: { onClick?: () => void }) => (
     <nav className="flex flex-col gap-1">
       {navItems.map((item) => {
@@ -75,6 +83,19 @@ export function AppLayout({ children }: AppLayoutProps) {
         </div>
         <div className="flex-1 overflow-y-auto p-4">
           <NavLinks />
+        </div>
+        {/* User section at bottom */}
+        <div className="border-t border-border p-4">
+          <div className="flex items-center gap-2 mb-3">
+            <div className="flex h-8 w-8 items-center justify-center rounded-full bg-primary/10">
+              <User className="h-4 w-4 text-primary" />
+            </div>
+            <span className="text-sm font-medium truncate flex-1">{user?.email}</span>
+          </div>
+          <Button variant="ghost" size="sm" className="w-full justify-start" onClick={handleSignOut}>
+            <LogOut className="h-4 w-4 mr-2" />
+            Sign Out
+          </Button>
         </div>
       </aside>
 
