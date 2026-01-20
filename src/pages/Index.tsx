@@ -4,6 +4,7 @@ import { EnhancedStatCard } from '@/components/dashboard/EnhancedStatCard';
 import { TimeRangeSelector, TimeRange, filterByTimeRange } from '@/components/dashboard/TimeRangeSelector';
 import { DataCoverageBadge } from '@/components/dashboard/DataCoverageBadge';
 import { AllocationToggle, AllocationMode } from '@/components/dashboard/AllocationToggle';
+import { AccountsMovement } from '@/components/dashboard/AccountsMovement';
 import { NetWorthChart } from '@/components/charts/NetWorthChart';
 import { AllocationChart } from '@/components/charts/AllocationChart';
 import { formatCurrency, formatChange } from '@/lib/format';
@@ -199,6 +200,8 @@ export default function Index() {
             <AllocationChart data={allocationData} title={allocationTitle} />
           </div>
         </div>
+
+        <AccountsMovement timeRange={timeRange} />
       </div>
     </AppLayout>
   );
