@@ -4,8 +4,9 @@ import { useMemo } from 'react';
 import { useLiabilities, useLiabilityBalances, useAccounts, useBalances } from './useWealthData';
 import { useAuth } from './useAuth';
 
-// Weekly rent constant
+// Weekly rent constant (default: $1,300/week = $67,600/year)
 const WEEKLY_RENT = 1300;
+const DEFAULT_ANNUAL_RENTAL_INCOME = WEEKLY_RENT * 52;
 
 interface MortgageOverride {
   id: string;
@@ -245,8 +246,31 @@ export function useMortgageData() {
     const fixedPayoffDate = calculatePayoffDate(fixedBalance, fixedRate, fixedRepayment);
     const variablePayoffDate = calculatePayoffDate(effectiveVariableBalance, variableRate, variableRepayment);
 
+    // Property value (from override or default 0)
+    const propertyValueOverride = overrideMap.get('property_value');
+    const propertyValue = propertyValueOverride?.value ?? 0;
+
+    // Calculate LVR and Equity
+    const lvr = propertyValue > 0 ? (totalMortgage / propertyValue) * 100 : 0;
+    const equity = propertyValue - totalMortgage;
+
     // Rental income
     const monthlyRent = WEEKLY_RENT * 52 / 12;
+
+    // Rental performance inputs (annual)
+    const annualRentalIncome = overrideMap.get('annual_rental_income')?.value ?? DEFAULT_ANNUAL_RENTAL_INCOME;
+    const annualRentalFees = overrideMap.get('annual_rental_fees')?.value ?? 0;
+    const annualCouncilRates = overrideMap.get('annual_council_rates')?.value ?? 0;
+    const annualSewageRates = overrideMap.get('annual_sewage_rates')?.value ?? 0;
+    const annualImprovements = overrideMap.get('annual_improvements')?.value ?? 0;
+
+    // Rental performance calculated outputs
+    const netRentalIncomeAnnual = annualRentalIncome - annualRentalFees - annualCouncilRates - annualSewageRates - annualImprovements;
+    const netRentalIncomeMonthly = netRentalIncomeAnnual / 12;
+    const netYieldPercent = propertyValue > 0 ? (netRentalIncomeAnnual / propertyValue) * 100 : 0;
+    const annualInterest = totalMonthlyInterest * 12;
+    const interestCoverageRatio = annualInterest > 0 ? netRentalIncomeAnnual / annualInterest : 0;
+    const netPositionAfterInterest = netRentalIncomeAnnual - annualInterest;
 
     // Progress percentage
     const percentPaidOff = originalLoan > 0 ? ((originalLoan - mortgageNetOfOffset) / originalLoan) * 100 : 0;
@@ -309,6 +333,22 @@ export function useMortgageData() {
       fixedMortgageId: fixedMortgage?.id,
       variableMortgageId: variableMortgage?.id,
       offsetAccountId: offsetAccount?.id,
+      // Property & LVR
+      propertyValue,
+      lvr,
+      equity,
+      // Rental performance
+      annualRentalIncome,
+      annualRentalFees,
+      annualCouncilRates,
+      annualSewageRates,
+      annualImprovements,
+      netRentalIncomeAnnual,
+      netRentalIncomeMonthly,
+      netYieldPercent,
+      interestCoverageRatio,
+      netPositionAfterInterest,
+      annualInterest,
     };
   }, [liabilities, liabilityBalances, accounts, balances, overrides]);
 
