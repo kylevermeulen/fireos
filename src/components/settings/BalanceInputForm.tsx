@@ -8,7 +8,7 @@ import { DollarSign, Plus } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/hooks/useAuth';
-import { format } from 'date-fns';
+
 
 interface Account {
   id: string;
@@ -22,7 +22,11 @@ export function BalanceInputForm() {
   const [accounts, setAccounts] = useState<Account[]>([]);
   const [selectedAccountId, setSelectedAccountId] = useState('');
   const [amountNative, setAmountNative] = useState('');
-  const [balanceDate, setBalanceDate] = useState(format(new Date(), 'yyyy-MM-dd'));
+  // Normalize to first of month for canonical month key
+  const [balanceDate, setBalanceDate] = useState(() => {
+    const now = new Date();
+    return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-01`;
+  });
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
 
@@ -98,7 +102,11 @@ export function BalanceInputForm() {
       const nativeAmount = parseFloat(amountNative);
       if (isNaN(nativeAmount)) throw new Error('Invalid amount');
 
-      const fxRate = await getFxRate(account.currency, balanceDate);
+      // Normalize to canonical month key (YYYY-MM-01)
+      const dateObj = new Date(balanceDate);
+      const canonicalDate = `${dateObj.getFullYear()}-${String(dateObj.getMonth() + 1).padStart(2, '0')}-01`;
+
+      const fxRate = await getFxRate(account.currency, canonicalDate);
       const audAmount = nativeAmount * fxRate;
 
       // Upsert balance (update if exists for same account + date)
@@ -107,7 +115,7 @@ export function BalanceInputForm() {
         .upsert(
           {
             account_id: selectedAccountId,
-            balance_date: balanceDate,
+            balance_date: canonicalDate,
             amount_native: nativeAmount,
             amount_aud: audAmount,
           },

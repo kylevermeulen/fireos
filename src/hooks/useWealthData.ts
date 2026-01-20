@@ -140,6 +140,16 @@ export function useValuations() {
   });
 }
 
+/**
+ * Normalizes any date to canonical month key (YYYY-MM-01 UTC)
+ */
+function toMonthKey(dateStr: string): string {
+  const d = new Date(dateStr);
+  const year = d.getUTCFullYear();
+  const month = String(d.getUTCMonth() + 1).padStart(2, '0');
+  return `${year}-${month}-01`;
+}
+
 export function useWealthSnapshots() {
   const { data: accounts, isLoading: accountsLoading } = useAccounts();
   const { data: balances, isLoading: balancesLoading } = useBalances();
@@ -154,30 +164,95 @@ export function useWealthSnapshots() {
       return [];
     }
 
-    // Get unique dates from all sources
-    const allDates = new Set<string>();
-    balances.forEach(b => allDates.add(b.balance_date));
-    liabilityBalances.forEach(lb => allDates.add(lb.balance_date));
-    valuations.forEach(v => allDates.add(v.valuation_date));
+    // Normalize all dates to month keys and collect unique months
+    const allMonths = new Set<string>();
+    balances.forEach(b => allMonths.add(toMonthKey(b.balance_date)));
+    liabilityBalances.forEach(lb => allMonths.add(toMonthKey(lb.balance_date)));
+    valuations.forEach(v => allMonths.add(toMonthKey(v.valuation_date)));
 
-    const sortedDates = Array.from(allDates).sort();
+    const sortedMonths = Array.from(allMonths).sort();
 
-    // Create account lookup maps
+    // Create lookup maps
     const accountById = new Map(accounts.map(a => [a.id, a]));
     const liabilityById = new Map(liabilities.map(l => [l.id, l]));
 
-    // Find offset account ID
-    const offsetAccountId = accounts.find(a => a.account_type === 'offset')?.id;
+    // Build balance lookup: accountId -> monthKey -> balance (use latest within month if multiple)
+    const balanceGrid = new Map<string, Map<string, Balance>>();
+    for (const b of balances) {
+      const monthKey = toMonthKey(b.balance_date);
+      if (!balanceGrid.has(b.account_id)) {
+        balanceGrid.set(b.account_id, new Map());
+      }
+      const accountBalances = balanceGrid.get(b.account_id)!;
+      const existing = accountBalances.get(monthKey);
+      // Keep the latest balance within the same month
+      if (!existing || b.balance_date > existing.balance_date) {
+        accountBalances.set(monthKey, b);
+      }
+    }
+
+    // Build liability balance lookup: liabilityId -> monthKey -> balance
+    const liabilityGrid = new Map<string, Map<string, LiabilityBalance>>();
+    for (const lb of liabilityBalances) {
+      const monthKey = toMonthKey(lb.balance_date);
+      if (!liabilityGrid.has(lb.liability_id)) {
+        liabilityGrid.set(lb.liability_id, new Map());
+      }
+      const liabBalances = liabilityGrid.get(lb.liability_id)!;
+      const existing = liabBalances.get(monthKey);
+      if (!existing || lb.balance_date > existing.balance_date) {
+        liabBalances.set(monthKey, lb);
+      }
+    }
+
+    // Build valuation lookup: assetType -> monthKey -> valuation
+    const valuationGrid = new Map<string, Map<string, Valuation>>();
+    for (const v of valuations) {
+      const monthKey = toMonthKey(v.valuation_date);
+      if (!valuationGrid.has(v.asset_type)) {
+        valuationGrid.set(v.asset_type, new Map());
+      }
+      const assetValuations = valuationGrid.get(v.asset_type)!;
+      const existing = assetValuations.get(monthKey);
+      if (!existing || v.valuation_date > existing.valuation_date) {
+        assetValuations.set(monthKey, v);
+      }
+    }
+
+    // Track first appearance of each account/liability/valuation for proper initialization
+    const accountFirstMonth = new Map<string, string>();
+    for (const [accountId, monthMap] of balanceGrid) {
+      const months = Array.from(monthMap.keys()).sort();
+      if (months.length > 0) {
+        accountFirstMonth.set(accountId, months[0]);
+      }
+    }
+
+    const liabilityFirstMonth = new Map<string, string>();
+    for (const [liabilityId, monthMap] of liabilityGrid) {
+      const months = Array.from(monthMap.keys()).sort();
+      if (months.length > 0) {
+        liabilityFirstMonth.set(liabilityId, months[0]);
+      }
+    }
+
+    const valuationFirstMonth = new Map<string, string>();
+    for (const [assetType, monthMap] of valuationGrid) {
+      const months = Array.from(monthMap.keys()).sort();
+      if (months.length > 0) {
+        valuationFirstMonth.set(assetType, months[0]);
+      }
+    }
+
+    // Carry-forward state trackers
+    const lastKnownBalance = new Map<string, number>(); // accountId -> amount_aud
+    const lastKnownLiability = new Map<string, number>(); // liabilityId -> balance
+    const lastKnownValuation = new Map<string, number>(); // assetType -> value_aud
 
     const result: MonthlySnapshot[] = [];
 
-    for (const date of sortedDates) {
-      // Get balances for this date
-      const dateBalances = balances.filter(b => b.balance_date === date);
-      const dateLiabilityBalances = liabilityBalances.filter(lb => lb.balance_date === date);
-      const dateValuations = valuations.filter(v => v.valuation_date === date);
-
-      // Calculate asset totals by type
+    for (const monthKey of sortedMonths) {
+      // Calculate asset totals by type with carry-forward
       let cashAud = 0;
       let investmentsAud = 0;
       let retirementAud = 0;
@@ -186,11 +261,26 @@ export function useWealthSnapshots() {
       let illiquidWealth = 0;
       let offsetBalance = 0;
 
-      for (const balance of dateBalances) {
-        const account = accountById.get(balance.account_id);
-        if (!account) continue;
-
-        const amount = balance.amount_aud;
+      for (const account of accounts) {
+        const accountMonths = balanceGrid.get(account.id);
+        const balance = accountMonths?.get(monthKey);
+        
+        let amount: number;
+        if (balance) {
+          // We have data for this month - update carry-forward
+          amount = balance.amount_aud;
+          lastKnownBalance.set(account.id, amount);
+        } else {
+          // No data for this month
+          const firstMonth = accountFirstMonth.get(account.id);
+          if (!firstMonth || monthKey < firstMonth) {
+            // Account hasn't appeared yet - contribute 0
+            amount = 0;
+          } else {
+            // Carry forward last known value
+            amount = lastKnownBalance.get(account.id) ?? 0;
+          }
+        }
 
         // Track by account type
         switch (account.account_type) {
@@ -220,33 +310,62 @@ export function useWealthSnapshots() {
         }
       }
 
-      // Calculate valuations
+      // Calculate valuations with carry-forward
       let homeValue = 0;
       let businessValue = 0;
 
-      for (const valuation of dateValuations) {
-        if (valuation.asset_type === 'home') {
-          homeValue = valuation.value_aud;
-        } else if (valuation.asset_type === 'business') {
-          businessValue = valuation.value_aud;
+      for (const assetType of ['home', 'business'] as const) {
+        const valMonths = valuationGrid.get(assetType);
+        const valuation = valMonths?.get(monthKey);
+        
+        let value: number;
+        if (valuation) {
+          value = valuation.value_aud;
+          lastKnownValuation.set(assetType, value);
+        } else {
+          const firstMonth = valuationFirstMonth.get(assetType);
+          if (!firstMonth || monthKey < firstMonth) {
+            value = 0;
+          } else {
+            value = lastKnownValuation.get(assetType) ?? 0;
+          }
+        }
+
+        if (assetType === 'home') {
+          homeValue = value;
+        } else {
+          businessValue = value;
         }
       }
 
       // Add valuations to illiquid wealth
       illiquidWealth += homeValue + businessValue;
 
-      // Calculate liabilities
+      // Calculate liabilities with carry-forward
       let mortgageBalance = 0;
       let loanBalance = 0;
 
-      for (const lb of dateLiabilityBalances) {
-        const liability = liabilityById.get(lb.liability_id);
-        if (!liability) continue;
+      for (const liability of liabilities) {
+        const liabMonths = liabilityGrid.get(liability.id);
+        const lb = liabMonths?.get(monthKey);
+        
+        let balance: number;
+        if (lb) {
+          balance = lb.balance;
+          lastKnownLiability.set(liability.id, balance);
+        } else {
+          const firstMonth = liabilityFirstMonth.get(liability.id);
+          if (!firstMonth || monthKey < firstMonth) {
+            balance = 0;
+          } else {
+            balance = lastKnownLiability.get(liability.id) ?? 0;
+          }
+        }
 
         if (liability.liability_type === 'fixed_mortgage' || liability.liability_type === 'variable_mortgage') {
-          mortgageBalance += lb.balance;
+          mortgageBalance += balance;
         } else if (liability.liability_type === 'loan') {
-          loanBalance += lb.balance;
+          loanBalance += balance;
         }
       }
 
@@ -256,7 +375,7 @@ export function useWealthSnapshots() {
       const mortgageNetOfOffset = mortgageBalance - offsetBalance;
 
       result.push({
-        date,
+        date: monthKey,
         totalAssets,
         totalLiabilities,
         netWorth,
