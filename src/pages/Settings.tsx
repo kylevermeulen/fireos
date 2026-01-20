@@ -19,6 +19,7 @@ import {
 } from '@/components/ui/alert-dialog';
 
 import { SnapshotImporter } from '@/components/settings/SnapshotImporter';
+import { BalanceInputForm } from '@/components/settings/BalanceInputForm';
 import { useAuth } from '@/hooks/useAuth';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
@@ -148,6 +149,9 @@ export default function Settings() {
 
         {/* Snapshot Importer */}
         <SnapshotImporter />
+
+        {/* Balance Input Form */}
+        <BalanceInputForm />
 
         {/* Reset snapshot-imported data */}
         <Card>
