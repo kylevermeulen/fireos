@@ -1,11 +1,13 @@
+import { useState, useMemo } from 'react';
 import { format } from 'date-fns';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { X } from 'lucide-react';
+import { X, ArrowUp, ArrowDown, ArrowUpDown } from 'lucide-react';
 import { formatCompactCurrency } from '@/lib/format';
 import { CashflowTransaction } from '@/types/cashflow';
+import { cn } from '@/lib/utils';
 
 interface TransactionsTableProps {
   transactions: CashflowTransaction[];
@@ -14,12 +16,87 @@ interface TransactionsTableProps {
   showClearFilter?: boolean;
 }
 
+type SortField = 'date' | 'source_account' | 'counterparty' | 'amount_aud' | 'L1' | 'L2';
+type SortDirection = 'asc' | 'desc';
+
+interface SortState {
+  field: SortField;
+  direction: SortDirection;
+}
+
+const PAGE_SIZE = 250;
+
 export function TransactionsTable({ 
   transactions, 
   title, 
   onClearFilter,
   showClearFilter = false,
 }: TransactionsTableProps) {
+  const [sortState, setSortState] = useState<SortState>({ field: 'amount_aud', direction: 'desc' });
+  const [visibleCount, setVisibleCount] = useState(PAGE_SIZE);
+
+  const handleSort = (field: SortField) => {
+    setSortState(prev => ({
+      field,
+      direction: prev.field === field && prev.direction === 'desc' ? 'asc' : 'desc',
+    }));
+  };
+
+  const sortedTransactions = useMemo(() => {
+    const sorted = [...transactions].sort((a, b) => {
+      const { field, direction } = sortState;
+      const multiplier = direction === 'asc' ? 1 : -1;
+
+      switch (field) {
+        case 'date':
+          return multiplier * (a.date.getTime() - b.date.getTime());
+        case 'source_account':
+          return multiplier * (a.source_account || '').localeCompare(b.source_account || '');
+        case 'counterparty':
+          return multiplier * (a.counterparty || '').localeCompare(b.counterparty || '');
+        case 'amount_aud':
+          return multiplier * (a.amount_aud - b.amount_aud);
+        case 'L1':
+          return multiplier * (a.L1 || '').localeCompare(b.L1 || '');
+        case 'L2':
+          return multiplier * (a.L2 || '').localeCompare(b.L2 || '');
+        default:
+          return 0;
+      }
+    });
+    return sorted;
+  }, [transactions, sortState]);
+
+  const visibleTransactions = sortedTransactions.slice(0, visibleCount);
+  const hasMore = visibleCount < transactions.length;
+
+  const handleShowMore = () => {
+    setVisibleCount(prev => Math.min(prev + PAGE_SIZE, transactions.length));
+  };
+
+  const SortableHeader = ({ field, children }: { field: SortField; children: React.ReactNode }) => {
+    const isActive = sortState.field === field;
+    return (
+      <TableHead 
+        className="sticky top-0 bg-background cursor-pointer hover:bg-muted/50 select-none"
+        onClick={() => handleSort(field)}
+      >
+        <div className="flex items-center gap-1">
+          {children}
+          {isActive ? (
+            sortState.direction === 'asc' ? (
+              <ArrowUp className="h-3 w-3" />
+            ) : (
+              <ArrowDown className="h-3 w-3" />
+            )
+          ) : (
+            <ArrowUpDown className="h-3 w-3 text-muted-foreground/50" />
+          )}
+        </div>
+      </TableHead>
+    );
+  };
+
   if (transactions.length === 0) {
     return (
       <Card>
@@ -52,21 +129,23 @@ export function TransactionsTable({
         </div>
       </CardHeader>
       <CardContent className="pt-0">
-        <ScrollArea className="h-[400px]">
+        <ScrollArea className="h-[500px]">
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead className="sticky top-0 bg-background">Date</TableHead>
-                <TableHead className="sticky top-0 bg-background">Account</TableHead>
-                <TableHead className="sticky top-0 bg-background">Counterparty</TableHead>
+                <SortableHeader field="date">Date</SortableHeader>
+                <SortableHeader field="source_account">Account</SortableHeader>
+                <SortableHeader field="counterparty">Counterparty</SortableHeader>
                 <TableHead className="sticky top-0 bg-background max-w-[200px]">Description</TableHead>
-                <TableHead className="sticky top-0 bg-background text-right">Amount</TableHead>
-                <TableHead className="sticky top-0 bg-background">L1</TableHead>
-                <TableHead className="sticky top-0 bg-background">L2</TableHead>
+                <SortableHeader field="amount_aud">
+                  <span className="w-full text-right">Amount</span>
+                </SortableHeader>
+                <SortableHeader field="L1">L1</SortableHeader>
+                <SortableHeader field="L2">L2</SortableHeader>
               </TableRow>
             </TableHeader>
             <TableBody>
-              {transactions.slice(0, 100).map((tx, idx) => (
+              {visibleTransactions.map((tx, idx) => (
                 <TableRow key={idx}>
                   <TableCell className="text-xs whitespace-nowrap">
                     {format(tx.date, 'MMM d, yyyy')}
@@ -87,12 +166,19 @@ export function TransactionsTable({
               ))}
             </TableBody>
           </Table>
-          {transactions.length > 100 && (
-            <p className="text-xs text-muted-foreground text-center py-2">
-              Showing first 100 of {transactions.length} transactions
-            </p>
-          )}
         </ScrollArea>
+        
+        {/* Show more / pagination info */}
+        <div className="flex items-center justify-between pt-3 border-t mt-3">
+          <p className="text-xs text-muted-foreground">
+            Showing {visibleTransactions.length} of {transactions.length} transactions
+          </p>
+          {hasMore && (
+            <Button variant="outline" size="sm" onClick={handleShowMore}>
+              Show more (+{Math.min(PAGE_SIZE, transactions.length - visibleCount)})
+            </Button>
+          )}
+        </div>
       </CardContent>
     </Card>
   );
