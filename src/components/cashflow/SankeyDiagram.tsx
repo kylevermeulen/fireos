@@ -1,5 +1,5 @@
 import { useMemo, useRef, useEffect, useState } from 'react';
-import { sankey, sankeyLinkHorizontal, SankeyNode, SankeyLink } from 'd3-sankey';
+import { sankey, sankeyLinkHorizontal } from 'd3-sankey';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { ChevronLeft } from 'lucide-react';
@@ -32,8 +32,8 @@ interface SankeyDiagramProps {
 const COLORS = {
   income: 'hsl(var(--success))',
   spending: 'hsl(var(--primary))',
-  link: 'hsl(var(--muted-foreground) / 0.2)',
-  linkHover: 'hsl(var(--primary) / 0.4)',
+  link: 'hsl(var(--muted-foreground) / 0.15)',
+  linkHover: 'hsl(var(--primary) / 0.3)',
 };
 
 const NODE_COLORS = [
@@ -44,6 +44,15 @@ const NODE_COLORS = [
   'hsl(var(--muted-foreground) / 0.4)',
   'hsl(var(--muted-foreground) / 0.3)',
 ];
+
+// Calculate dynamic height based on number of categories
+function calculateHeight(incomeCount: number, spendingCount: number): number {
+  const maxCategories = Math.max(incomeCount, spendingCount);
+  // Minimum 40px per category, plus padding
+  const minHeight = 500;
+  const perCategoryHeight = 45;
+  return Math.max(minHeight, maxCategories * perCategoryHeight + 60);
+}
 
 export function SankeyDiagram({
   incomeByCategory,
@@ -56,25 +65,35 @@ export function SankeyDiagram({
   onBack,
 }: SankeyDiagramProps) {
   const containerRef = useRef<HTMLDivElement>(null);
-  const [dimensions, setDimensions] = useState({ width: 800, height: 400 });
+  const [containerWidth, setContainerWidth] = useState(800);
   const [hoveredNode, setHoveredNode] = useState<string | null>(null);
 
+  const spendingData = drilldownCategory ? (spendingByL2 || []) : spendingByL1;
+  
+  // Dynamic height based on category count
+  const chartHeight = useMemo(() => 
+    calculateHeight(incomeByCategory.length, spendingData.length),
+    [incomeByCategory.length, spendingData.length]
+  );
+
+  // Wide margins for labels - labels go outside the chart area
+  const labelMarginLeft = 180;
+  const labelMarginRight = 200;
+
   useEffect(() => {
-    const updateDimensions = () => {
+    const updateWidth = () => {
       if (containerRef.current) {
         const { width } = containerRef.current.getBoundingClientRect();
-        setDimensions({ width: Math.max(width, 300), height: 400 });
+        setContainerWidth(Math.max(width, 400));
       }
     };
     
-    updateDimensions();
-    window.addEventListener('resize', updateDimensions);
-    return () => window.removeEventListener('resize', updateDimensions);
+    updateWidth();
+    window.addEventListener('resize', updateWidth);
+    return () => window.removeEventListener('resize', updateWidth);
   }, []);
 
   const { nodes, links, nodePositions, linkPaths } = useMemo(() => {
-    const spendingData = drilldownCategory ? (spendingByL2 || []) : spendingByL1;
-    
     // Build nodes
     const nodesData: SankeyNodeData[] = [];
     const nodeIndexMap = new Map<string, number>();
@@ -118,11 +137,15 @@ export function SankeyDiagram({
       return { nodes: [], links: [], nodePositions: [], linkPaths: [] };
     }
     
-    // Create sankey generator
+    // Create sankey generator with narrow center for links
+    // Nodes positioned closer to edges, leaving minimal space in middle
     const sankeyGenerator = sankey<SankeyNodeData, SankeyLinkData>()
-      .nodeWidth(20)
-      .nodePadding(12)
-      .extent([[40, 20], [dimensions.width - 40, dimensions.height - 20]]);
+      .nodeWidth(12)
+      .nodePadding(8)
+      .extent([
+        [labelMarginLeft, 30], 
+        [containerWidth - labelMarginRight, chartHeight - 30]
+      ]);
     
     try {
       const graph = sankeyGenerator({
@@ -136,10 +159,10 @@ export function SankeyDiagram({
         nodePositions: graph.nodes,
         linkPaths: graph.links.map(link => sankeyLinkHorizontal()(link as any)),
       };
-    } catch (e) {
+    } catch {
       return { nodes: [], links: [], nodePositions: [], linkPaths: [] };
     }
-  }, [incomeByCategory, spendingByL1, spendingByL2, drilldownCategory, totalIncome, dimensions]);
+  }, [incomeByCategory, spendingData, drilldownCategory, totalIncome, containerWidth, chartHeight, labelMarginLeft, labelMarginRight]);
 
   if (nodes.length === 0) {
     return (
@@ -157,7 +180,7 @@ export function SankeyDiagram({
   return (
     <Card>
       <CardHeader className="pb-2">
-        <div className="flex items-center justify-between">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
           <div className="flex items-center gap-2">
             {drilldownCategory && onBack && (
               <Button variant="ghost" size="sm" onClick={onBack} className="h-8 px-2">
@@ -186,10 +209,10 @@ export function SankeyDiagram({
           </div>
         </div>
       </CardHeader>
-      <CardContent>
-        <div ref={containerRef} className="w-full">
-          <svg width={dimensions.width} height={dimensions.height}>
-            {/* Links */}
+      <CardContent className="overflow-x-auto">
+        <div ref={containerRef} className="w-full min-w-[600px]">
+          <svg width={containerWidth} height={chartHeight}>
+            {/* Links - rendered first so nodes appear on top */}
             <g>
               {linkPaths.map((path, i) => {
                 const link = links[i] as any;
@@ -204,19 +227,20 @@ export function SankeyDiagram({
                     fill="none"
                     stroke={isHovered ? COLORS.linkHover : COLORS.link}
                     strokeWidth={Math.max((link as any).width || 1, 1)}
-                    opacity={isHovered ? 0.8 : 0.5}
+                    opacity={isHovered ? 0.7 : 0.4}
                     style={{ transition: 'all 0.2s ease' }}
                   />
                 );
               })}
             </g>
             
-            {/* Nodes */}
+            {/* Nodes with labels */}
             <g>
               {nodePositions.map((node: any, i) => {
                 const isIncome = node.type === 'income';
                 const isHovered = hoveredNode === node.name;
                 const colorIndex = Math.min(i % NODE_COLORS.length, NODE_COLORS.length - 1);
+                const nodeHeight = Math.max((node.y1 || 0) - (node.y0 || 0), 4);
                 
                 return (
                   <g 
@@ -230,37 +254,40 @@ export function SankeyDiagram({
                     }}
                     style={{ cursor: node.type === 'L1' && !drilldownCategory ? 'pointer' : 'default' }}
                   >
+                    {/* Node bar */}
                     <rect
                       x={node.x0}
                       y={node.y0}
                       width={(node.x1 || 0) - (node.x0 || 0)}
-                      height={Math.max((node.y1 || 0) - (node.y0 || 0), 1)}
+                      height={nodeHeight}
                       fill={isIncome ? COLORS.income : NODE_COLORS[colorIndex]}
                       rx={2}
-                      opacity={isHovered ? 1 : 0.9}
+                      opacity={isHovered ? 1 : 0.85}
                       style={{ transition: 'opacity 0.2s ease' }}
                     />
+                    
+                    {/* Category name - full text, positioned outside chart */}
                     <text
-                      x={isIncome ? (node.x0 || 0) - 6 : (node.x1 || 0) + 6}
-                      y={((node.y0 || 0) + (node.y1 || 0)) / 2}
+                      x={isIncome ? (node.x0 || 0) - 8 : (node.x1 || 0) + 8}
+                      y={(node.y0 || 0) + nodeHeight / 2}
                       textAnchor={isIncome ? 'end' : 'start'}
                       dominantBaseline="middle"
-                      className="text-[11px] fill-foreground"
+                      className="text-[12px] sm:text-[13px] fill-foreground"
                       fontWeight={isHovered ? 600 : 400}
                     >
-                      {node.name.length > 20 ? node.name.slice(0, 18) + '…' : node.name}
+                      {node.name}
                     </text>
-                    {isHovered && (
-                      <text
-                        x={isIncome ? (node.x0 || 0) - 6 : (node.x1 || 0) + 6}
-                        y={((node.y0 || 0) + (node.y1 || 0)) / 2 + 14}
-                        textAnchor={isIncome ? 'end' : 'start'}
-                        dominantBaseline="middle"
-                        className="text-[10px] fill-muted-foreground"
-                      >
-                        {formatCompactCurrency(node.value || 0)}
-                      </text>
-                    )}
+                    
+                    {/* Amount - shown below category name */}
+                    <text
+                      x={isIncome ? (node.x0 || 0) - 8 : (node.x1 || 0) + 8}
+                      y={(node.y0 || 0) + nodeHeight / 2 + 14}
+                      textAnchor={isIncome ? 'end' : 'start'}
+                      dominantBaseline="middle"
+                      className="text-[11px] fill-muted-foreground"
+                    >
+                      {formatCompactCurrency(node.value || 0)}
+                    </text>
                   </g>
                 );
               })}
@@ -269,7 +296,7 @@ export function SankeyDiagram({
         </div>
         
         {!drilldownCategory && (
-          <p className="text-xs text-muted-foreground mt-2 text-center">
+          <p className="text-xs text-muted-foreground mt-3 text-center">
             Click a spending category to drill down
           </p>
         )}
