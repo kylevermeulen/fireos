@@ -48,10 +48,10 @@ const NODE_COLORS = [
 // Calculate dynamic height based on number of categories
 function calculateHeight(incomeCount: number, spendingCount: number): number {
   const maxCategories = Math.max(incomeCount, spendingCount);
-  // 70px per category to fit label + amount, minimum 700px
-  const minHeight = 700;
-  const perCategoryHeight = 70;
-  return Math.max(minHeight, maxCategories * perCategoryHeight + 100);
+  // 90px per category to fit label + amount with spacing, minimum 900px
+  const minHeight = 900;
+  const perCategoryHeight = 90;
+  return Math.max(minHeight, maxCategories * perCategoryHeight + 120);
 }
 
 export function SankeyDiagram({
@@ -141,10 +141,10 @@ export function SankeyDiagram({
     // Nodes positioned closer to edges, leaving minimal space in middle
     const sankeyGenerator = sankey<SankeyNodeData, SankeyLinkData>()
       .nodeWidth(12)
-      .nodePadding(8)
+      .nodePadding(35)
       .extent([
-        [labelMarginLeft, 30], 
-        [containerWidth - labelMarginRight, chartHeight - 30]
+        [labelMarginLeft, 40], 
+        [containerWidth - labelMarginRight, chartHeight - 40]
       ]);
     
     try {
