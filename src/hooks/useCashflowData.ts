@@ -195,7 +195,8 @@ export function useFilteredCashflow(
     });
   }, [transactions, timeRange, excludeInternalTransfers, showUnknown]);
 
-  const income = useMemo(() => filtered.filter(tx => tx.direction === 'in'), [filtered]);
+  // Income: direction=in AND L1='Income' (per CSV ground truth requirements)
+  const income = useMemo(() => filtered.filter(tx => tx.direction === 'in' && tx.L1 === 'Income'), [filtered]);
   const spending = useMemo(() => filtered.filter(tx => tx.direction === 'out'), [filtered]);
 
   const totalIncome = useMemo(() => income.reduce((sum, tx) => sum + tx.amount_aud, 0), [income]);
