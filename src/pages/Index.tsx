@@ -1,8 +1,8 @@
-import { useState, useMemo } from 'react';
+import { useMemo } from 'react';
 import { Link } from 'react-router-dom';
 import { AppLayout } from '@/components/layout/AppLayout';
 import { EnhancedStatCard } from '@/components/dashboard/EnhancedStatCard';
-import { TimeRangeSelector, TimeRange, filterByTimeRange } from '@/components/dashboard/TimeRangeSelector';
+import { GlobalTimeRangeSelector } from '@/components/dashboard/GlobalTimeRangeSelector';
 import { DataCoverageBadge } from '@/components/dashboard/DataCoverageBadge';
 import { AllocationToggle, AllocationMode } from '@/components/dashboard/AllocationToggle';
 import { AccountsMovement } from '@/components/dashboard/AccountsMovement';
@@ -11,13 +11,15 @@ import { AllocationChart } from '@/components/charts/AllocationChart';
 import { formatCurrency, formatChange } from '@/lib/format';
 import { useWealthSnapshots, useBalances, useAccounts } from '@/hooks/useWealthData';
 import { useAuth } from '@/hooks/useAuth';
+import { useGlobalTimeRange, filterByTimeRange } from '@/contexts/TimeRangeContext';
 import { Wallet, TrendingUp, PiggyBank, Landmark, Upload, Database } from 'lucide-react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Button } from '@/components/ui/button';
+import { useState } from 'react';
 
 export default function Index() {
-  const [timeRange, setTimeRange] = useState<TimeRange>('ALL');
+  const { timeRange, customDateRange } = useGlobalTimeRange();
   const [allocationMode, setAllocationMode] = useState<AllocationMode>('accessible');
   
   const { sessionReady, user } = useAuth();
@@ -29,8 +31,8 @@ export default function Index() {
 
   // Filter snapshots by time range
   const filteredSnapshots = useMemo(() => {
-    return filterByTimeRange(snapshots, timeRange);
-  }, [snapshots, timeRange]);
+    return filterByTimeRange(snapshots, timeRange, customDateRange);
+  }, [snapshots, timeRange, customDateRange]);
 
   // Get latest and previous from filtered data
   const latestSnapshot = filteredSnapshots.length > 0 ? filteredSnapshots[filteredSnapshots.length - 1] : null;
@@ -205,7 +207,7 @@ export default function Index() {
             <p className="text-muted-foreground">Household wealth overview</p>
           </div>
           <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3">
-            <TimeRangeSelector value={timeRange} onChange={setTimeRange} />
+            <GlobalTimeRangeSelector />
             <DataCoverageBadge
               firstDate={firstDate}
               lastDate={lastDate}

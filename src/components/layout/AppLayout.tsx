@@ -28,7 +28,7 @@ interface NavItem {
 
 const navItems: NavItem[] = [
   { label: 'Dashboard', href: '/', icon: <LayoutDashboard className="h-5 w-5" /> },
-  { label: 'Wealth', href: '/wealth', icon: <Wallet className="h-5 w-5" /> },
+  { label: 'Accounts', href: '/wealth', icon: <Wallet className="h-5 w-5" /> },
   { label: 'Investments', href: '/investments', icon: <LineChart className="h-5 w-5" /> },
   { label: 'Retirement', href: '/retirement', icon: <Landmark className="h-5 w-5" /> },
   { label: 'Mortgage', href: '/mortgage', icon: <Home className="h-5 w-5" /> },

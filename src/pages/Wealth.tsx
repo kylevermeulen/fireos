@@ -17,7 +17,7 @@ export default function Wealth() {
       <AppLayout>
         <div className="space-y-6">
           <div>
-            <h1 className="text-2xl font-bold tracking-tight">Wealth Breakdown</h1>
+            <h1 className="text-2xl font-bold tracking-tight">Accounts</h1>
             <p className="text-muted-foreground">All assets and liabilities by account</p>
           </div>
           <Card>
@@ -54,7 +54,7 @@ export default function Wealth() {
       <AppLayout>
         <div className="space-y-6">
           <div>
-            <h1 className="text-2xl font-bold tracking-tight">Wealth Breakdown</h1>
+            <h1 className="text-2xl font-bold tracking-tight">Accounts</h1>
             <p className="text-muted-foreground">All assets and liabilities by account</p>
           </div>
           <Card>
@@ -75,7 +75,7 @@ export default function Wealth() {
     <AppLayout>
       <div className="space-y-6">
         <div>
-          <h1 className="text-2xl font-bold tracking-tight">Wealth Breakdown</h1>
+          <h1 className="text-2xl font-bold tracking-tight">Accounts</h1>
           <p className="text-muted-foreground">All assets and liabilities by account</p>
         </div>
 

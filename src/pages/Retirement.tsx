@@ -1,11 +1,12 @@
-import { useState, useMemo } from 'react';
+import { useMemo } from 'react';
 import { AppLayout } from '@/components/layout/AppLayout';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { useAccounts, useBalances } from '@/hooks/useWealthData';
 import { Skeleton } from '@/components/ui/skeleton';
 import { formatCompactCurrency, formatDate, formatPercent } from '@/lib/format';
 import { Landmark, TrendingUp, TrendingDown } from 'lucide-react';
-import { TimeRangeSelector, TimeRange, filterByTimeRange } from '@/components/dashboard/TimeRangeSelector';
+import { GlobalTimeRangeSelector } from '@/components/dashboard/GlobalTimeRangeSelector';
+import { useGlobalTimeRange, filterByTimeRange } from '@/contexts/TimeRangeContext';
 import {
   Table,
   TableBody,
@@ -16,7 +17,7 @@ import {
 } from '@/components/ui/table';
 
 export default function Retirement() {
-  const [timeRange, setTimeRange] = useState<TimeRange>('1Y');
+  const { timeRange, customDateRange } = useGlobalTimeRange();
   const { data: accounts, isLoading: accountsLoading } = useAccounts();
   const { data: balances, isLoading: balancesLoading } = useBalances();
 
@@ -50,7 +51,7 @@ export default function Retirement() {
     });
 
     // Filter by time range
-    const filteredSnapshots = filterByTimeRange(snapshots, timeRange);
+    const filteredSnapshots = filterByTimeRange(snapshots, timeRange, customDateRange);
 
     // Get start and end values
     const startSnapshot = filteredSnapshots[0];
@@ -102,7 +103,9 @@ export default function Retirement() {
       accountDetails,
       snapshots: filteredSnapshots,
     };
-  }, [accounts, balances, timeRange]);
+  }, [accounts, balances, timeRange, customDateRange]);
+
+  const timeRangeLabel = timeRange === 'custom' ? 'Period' : timeRange;
 
   if (isLoading) {
     return (
@@ -156,7 +159,7 @@ export default function Retirement() {
             <h1 className="text-2xl font-bold tracking-tight">Retirement</h1>
             <p className="text-muted-foreground">Superannuation & retirement accounts</p>
           </div>
-          <TimeRangeSelector value={timeRange} onChange={setTimeRange} />
+          <GlobalTimeRangeSelector />
         </div>
 
         {/* Top stat cards */}
@@ -182,7 +185,7 @@ export default function Retirement() {
             <CardContent className="p-4">
               <div className="flex items-start justify-between">
                 <div>
-                  <p className="text-sm font-medium text-muted-foreground">Change ({timeRange})</p>
+                  <p className="text-sm font-medium text-muted-foreground">Change ({timeRangeLabel})</p>
                   <p className={`text-2xl font-bold ${isPositive ? 'text-success' : 'text-destructive'}`}>
                     {isPositive ? '+' : ''}{formatCompactCurrency(retirementData.delta)}
                   </p>
@@ -213,7 +216,7 @@ export default function Retirement() {
                 <TableRow>
                   <TableHead>Account</TableHead>
                   <TableHead className="text-right">Balance (AUD)</TableHead>
-                  <TableHead className="text-right">Change ({timeRange})</TableHead>
+                  <TableHead className="text-right">Change ({timeRangeLabel})</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
