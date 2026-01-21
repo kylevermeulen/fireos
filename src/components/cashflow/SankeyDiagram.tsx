@@ -48,10 +48,10 @@ const NODE_COLORS = [
 // Calculate dynamic height based on number of categories
 function calculateHeight(incomeCount: number, spendingCount: number): number {
   const maxCategories = Math.max(incomeCount, spendingCount);
-  // Minimum 40px per category, plus padding
-  const minHeight = 500;
-  const perCategoryHeight = 45;
-  return Math.max(minHeight, maxCategories * perCategoryHeight + 60);
+  // 70px per category to fit label + amount, minimum 700px
+  const minHeight = 700;
+  const perCategoryHeight = 70;
+  return Math.max(minHeight, maxCategories * perCategoryHeight + 100);
 }
 
 export function SankeyDiagram({
