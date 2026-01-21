@@ -286,6 +286,42 @@ export type Database = {
           },
         ]
       }
+      manual_overrides: {
+        Row: {
+          created_at: string
+          effective_from: string | null
+          entity_key: string
+          entity_type: string
+          field_key: string
+          id: string
+          updated_at: string
+          user_id: string
+          value_json: Json
+        }
+        Insert: {
+          created_at?: string
+          effective_from?: string | null
+          entity_key: string
+          entity_type: string
+          field_key: string
+          id?: string
+          updated_at?: string
+          user_id: string
+          value_json: Json
+        }
+        Update: {
+          created_at?: string
+          effective_from?: string | null
+          entity_key?: string
+          entity_type?: string
+          field_key?: string
+          id?: string
+          updated_at?: string
+          user_id?: string
+          value_json?: Json
+        }
+        Relationships: []
+      }
       mortgage_overrides: {
         Row: {
           created_at: string

@@ -5,7 +5,7 @@ import { supabase } from '@/integrations/supabase/client';
 export function useAuth() {
   const [user, setUser] = useState<User | null>(null);
   const [session, setSession] = useState<Session | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
+  const [sessionReady, setSessionReady] = useState(false);
 
   useEffect(() => {
     // Set up auth state listener FIRST
@@ -13,7 +13,7 @@ export function useAuth() {
       (event, session) => {
         setSession(session);
         setUser(session?.user ?? null);
-        setIsLoading(false);
+        setSessionReady(true);
       }
     );
 
@@ -21,7 +21,7 @@ export function useAuth() {
     supabase.auth.getSession().then(({ data: { session } }) => {
       setSession(session);
       setUser(session?.user ?? null);
-      setIsLoading(false);
+      setSessionReady(true);
     });
 
     return () => {
@@ -66,7 +66,8 @@ export function useAuth() {
   return {
     user,
     session,
-    isLoading,
+    sessionReady,
+    isLoading: !sessionReady,
     isAuthenticated: !!user,
     signIn,
     signUp,
