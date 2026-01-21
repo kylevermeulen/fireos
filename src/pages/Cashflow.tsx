@@ -10,27 +10,24 @@ import { CashflowEmptyState } from '@/components/cashflow/CashflowEmptyState';
 import { TransactionsTable } from '@/components/cashflow/TransactionsTable';
 import { DataSanityPanel } from '@/components/cashflow/DataSanityPanel';
 import { CashflowModeToggle } from '@/components/cashflow/CashflowModeToggle';
-import { CashflowDateRangePicker } from '@/components/cashflow/CashflowDateRangePicker';
+import { GlobalTimeRangeSelector } from '@/components/dashboard/GlobalTimeRangeSelector';
 import { CashflowCategoryFilters } from '@/components/cashflow/CashflowCategoryFilters';
 import { Input } from '@/components/ui/input';
 import { Search } from 'lucide-react';
-import { CashflowMode, DateRange, CategoryTotal } from '@/types/cashflow';
-
-// Default date range: Jul 1 – Dec 31 2025
-const DEFAULT_DATE_RANGE: DateRange = {
-  from: new Date(2025, 6, 1), // July 1, 2025
-  to: new Date(2025, 11, 31), // December 31, 2025
-};
+import { CashflowMode, CategoryTotal } from '@/types/cashflow';
+import { useGlobalTimeRange } from '@/contexts/TimeRangeContext';
 
 export default function Cashflow() {
   // Mode state
   const [mode, setMode] = useState<CashflowMode>('amortised');
   
+  // Use global time range
+  const { effectiveDateRange } = useGlobalTimeRange();
+  
   // Data loading
   const { rawTransactions, isLoading, error, reload } = useCashflowData(mode);
   
   // Filter state
-  const [dateRange, setDateRange] = useState<DateRange>(DEFAULT_DATE_RANGE);
   const [l1Filter, setL1Filter] = useState<string | null>(null);
   const [l2Filter, setL2Filter] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
@@ -48,7 +45,7 @@ export default function Cashflow() {
     allL1Categories,
     allL2Categories,
     sanityStats,
-  } = useFilteredCashflow(rawTransactions, dateRange, l1Filter, l2Filter, searchQuery);
+  } = useFilteredCashflow(rawTransactions, effectiveDateRange, l1Filter, l2Filter, searchQuery);
 
   // Get L2 spending for drilldown
   const spendingByL2ForDrilldown = useMemo((): CategoryTotal[] => {
@@ -168,15 +165,15 @@ export default function Cashflow() {
           <div>
             <h1 className="text-2xl font-bold tracking-tight">Cash Flow</h1>
             <p className="text-muted-foreground">
-              {rawTransactions.length.toLocaleString()} transactions • {format(dateRange.from, 'MMM d, yyyy')} – {format(dateRange.to, 'MMM d, yyyy')}
+              {rawTransactions.length.toLocaleString()} transactions • {format(effectiveDateRange.from, 'MMM d, yyyy')} – {format(effectiveDateRange.to, 'MMM d, yyyy')}
             </p>
           </div>
           <CashflowModeToggle mode={mode} onChange={setMode} />
         </div>
 
-        {/* Controls Row 1: Date picker and Search */}
+        {/* Controls Row 1: Time selector and Search */}
         <div className="flex flex-col sm:flex-row sm:items-center gap-4">
-          <CashflowDateRangePicker value={dateRange} onChange={setDateRange} />
+          <GlobalTimeRangeSelector />
           <div className="relative flex-1 max-w-sm">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
             <Input

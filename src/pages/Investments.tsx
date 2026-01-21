@@ -1,11 +1,12 @@
-import { useState, useMemo } from 'react';
+import { useMemo, useState } from 'react';
 import { AppLayout } from '@/components/layout/AppLayout';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { useAccounts, useBalances } from '@/hooks/useWealthData';
 import { Skeleton } from '@/components/ui/skeleton';
 import { formatCompactCurrency, formatDate, formatPercent } from '@/lib/format';
 import { PieChart, TrendingUp, TrendingDown, Briefcase, Bitcoin, LineChart } from 'lucide-react';
-import { TimeRangeSelector, TimeRange, filterByTimeRange } from '@/components/dashboard/TimeRangeSelector';
+import { GlobalTimeRangeSelector } from '@/components/dashboard/GlobalTimeRangeSelector';
+import { useGlobalTimeRange, filterByTimeRange } from '@/contexts/TimeRangeContext';
 import {
   Table,
   TableBody,
@@ -31,7 +32,7 @@ interface AccountWithBalance {
 }
 
 export default function Investments() {
-  const [timeRange, setTimeRange] = useState<TimeRange>('1Y');
+  const { timeRange, customDateRange } = useGlobalTimeRange();
   const [expandedGroups, setExpandedGroups] = useState<Set<InvestmentCategory>>(
     new Set(['public', 'crypto', 'private'])
   );
@@ -83,7 +84,7 @@ export default function Investments() {
     });
 
     // Filter by time range
-    const filteredSnapshots = filterByTimeRange(snapshots, timeRange);
+    const filteredSnapshots = filterByTimeRange(snapshots, timeRange, customDateRange);
 
     // Get start and end values
     const startSnapshot = filteredSnapshots[0];
@@ -167,7 +168,9 @@ export default function Investments() {
         private: { balance: privateTotal, delta: privateDelta },
       },
     };
-  }, [accounts, balances, timeRange]);
+  }, [accounts, balances, timeRange, customDateRange]);
+
+  const timeRangeLabel = timeRange === 'custom' ? 'Period' : timeRange;
 
   if (isLoading) {
     return (
@@ -257,7 +260,7 @@ export default function Investments() {
               <TableRow>
                 <TableHead>Account</TableHead>
                 <TableHead className="text-right">Balance (AUD)</TableHead>
-                <TableHead className="text-right">Change ({timeRange})</TableHead>
+                <TableHead className="text-right">Change ({timeRangeLabel})</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -295,7 +298,7 @@ export default function Investments() {
             <h1 className="text-2xl font-bold tracking-tight">Investments</h1>
             <p className="text-muted-foreground">Public markets, crypto & private investments</p>
           </div>
-          <TimeRangeSelector value={timeRange} onChange={setTimeRange} />
+          <GlobalTimeRangeSelector />
         </div>
 
         {/* Top stat cards */}
@@ -321,7 +324,7 @@ export default function Investments() {
             <CardContent className="p-4">
               <div className="flex items-start justify-between">
                 <div>
-                  <p className="text-sm font-medium text-muted-foreground">Change ({timeRange})</p>
+                  <p className="text-sm font-medium text-muted-foreground">Change ({timeRangeLabel})</p>
                   <p className={`text-2xl font-bold ${isPositive ? 'text-success' : 'text-destructive'}`}>
                     {isPositive ? '+' : ''}{formatCompactCurrency(investmentData.delta)}
                   </p>

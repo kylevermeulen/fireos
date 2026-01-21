@@ -21,19 +21,19 @@ export function formatCurrency(
   const formatter = new Intl.NumberFormat(localeMap[currency], {
     style: 'currency',
     currency,
-    minimumFractionDigits: 2,
-    maximumFractionDigits: 2,
+    minimumFractionDigits: 0,
+    maximumFractionDigits: 0,
     signDisplay: showSign ? 'exceptZero' : 'auto',
   });
 
   return formatter.format(amount);
 }
 
-// Smart compact currency formatting with proper decimals
-// >= 1,000,000 → $2.18M (2 decimals)
+// Smart compact currency formatting without decimals
+// >= 1,000,000 → $2M (no decimals)
 // >= 100,000 → $127K (no decimals)
-// >= 10,000 → $12.3K (1 decimal)
-// < 10,000 → $9,532 (full number)
+// >= 10,000 → $12K (no decimals)
+// < 10,000 → $9,532 (full number, no decimals)
 export function formatCompactCurrency(
   amount: number,
   currency: CurrencyCode = 'AUD',
@@ -46,20 +46,18 @@ export function formatCompactCurrency(
   let formatted: string;
   
   if (absAmount >= 1_000_000) {
-    // >= 1M: show 2 decimals (e.g., $2.18M)
-    formatted = `${(absAmount / 1_000_000).toFixed(2)}M`;
+    // >= 1M: show 1 decimal only if needed (e.g., $2.1M vs $2M)
+    const millions = absAmount / 1_000_000;
+    formatted = millions % 1 === 0 ? `${Math.round(millions)}M` : `${millions.toFixed(1)}M`;
   } else if (absAmount >= 100_000) {
     // >= 100K: show no decimals (e.g., $127K)
     formatted = `${Math.round(absAmount / 1_000)}K`;
   } else if (absAmount >= 10_000) {
-    // >= 10K: show 1 decimal (e.g., $12.3K)
-    formatted = `${(absAmount / 1_000).toFixed(1)}K`;
+    // >= 10K: show no decimals (e.g., $12K)
+    formatted = `${Math.round(absAmount / 1_000)}K`;
   } else {
-    // < 10K: show full number with commas (e.g., $9,532)
-    formatted = absAmount.toLocaleString('en-AU', { 
-      minimumFractionDigits: 0, 
-      maximumFractionDigits: 0 
-    });
+    // < 10K: show full number with commas, no decimals (e.g., $9,532)
+    formatted = Math.round(absAmount).toLocaleString('en-AU');
   }
   
   return `${sign}${prefix}${formatted}`;
