@@ -12,6 +12,7 @@ import Portfolio from "./pages/Portfolio";
 import Cashflow from "./pages/Cashflow";
 import Fire from "./pages/Fire";
 import Projections from "./pages/Projections";
+import Goals from "./pages/Goals";
 import Settings from "./pages/Settings";
 import NotFound from "./pages/NotFound";
 import Mortgage from "./pages/Mortgage";
@@ -35,6 +36,7 @@ const App = () => (
             <Route path="/cashflow" element={<ProtectedRoute><Cashflow /></ProtectedRoute>} />
             <Route path="/fire" element={<ProtectedRoute><Fire /></ProtectedRoute>} />
             <Route path="/projections" element={<ProtectedRoute><Projections /></ProtectedRoute>} />
+            <Route path="/goals" element={<ProtectedRoute><Goals /></ProtectedRoute>} />
             <Route path="/mortgage" element={<ProtectedRoute><Mortgage /></ProtectedRoute>} />
             <Route path="/retirement" element={<ProtectedRoute><Retirement /></ProtectedRoute>} />
             <Route path="/investments" element={<ProtectedRoute><Investments /></ProtectedRoute>} />

@@ -157,6 +157,54 @@ export type Database = {
         }
         Relationships: []
       }
+      goals: {
+        Row: {
+          created_at: string
+          current_value: number | null
+          description: string | null
+          display_order: number | null
+          id: string
+          is_completed: boolean | null
+          metric_config: Json | null
+          metric_type: string
+          target_date: string
+          target_value: number
+          title: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          current_value?: number | null
+          description?: string | null
+          display_order?: number | null
+          id?: string
+          is_completed?: boolean | null
+          metric_config?: Json | null
+          metric_type: string
+          target_date: string
+          target_value: number
+          title: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          current_value?: number | null
+          description?: string | null
+          display_order?: number | null
+          id?: string
+          is_completed?: boolean | null
+          metric_config?: Json | null
+          metric_type?: string
+          target_date?: string
+          target_value?: number
+          title?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       holdings: {
         Row: {
           account_id: string
