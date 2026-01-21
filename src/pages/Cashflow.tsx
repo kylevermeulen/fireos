@@ -1,23 +1,41 @@
 import { useState, useMemo } from 'react';
+import { format } from 'date-fns';
 import { AppLayout } from '@/components/layout/AppLayout';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useCashflowData, useFilteredCashflow } from '@/hooks/useCashflowData';
 import { SankeyDiagram } from '@/components/cashflow/SankeyDiagram';
 import { CashflowTable } from '@/components/cashflow/CashflowTable';
 import { CashflowSummary } from '@/components/cashflow/CashflowSummary';
-import { CashflowTimeRange } from '@/components/cashflow/CashflowTimeRange';
-import { CashflowFilters } from '@/components/cashflow/CashflowFilters';
 import { CashflowEmptyState } from '@/components/cashflow/CashflowEmptyState';
-import { CashflowTimeRange as TimeRangeType, CategoryTotal } from '@/types/cashflow';
+import { TransactionsTable } from '@/components/cashflow/TransactionsTable';
+import { DataSanityPanel } from '@/components/cashflow/DataSanityPanel';
+import { CashflowModeToggle } from '@/components/cashflow/CashflowModeToggle';
+import { CashflowDateRangePicker } from '@/components/cashflow/CashflowDateRangePicker';
+import { CashflowCategoryFilters } from '@/components/cashflow/CashflowCategoryFilters';
+import { Input } from '@/components/ui/input';
+import { Search } from 'lucide-react';
+import { CashflowMode, DateRange, CategoryTotal } from '@/types/cashflow';
+
+// Default date range: Jul 1 – Dec 31 2025
+const DEFAULT_DATE_RANGE: DateRange = {
+  from: new Date(2025, 6, 1), // July 1, 2025
+  to: new Date(2025, 11, 31), // December 31, 2025
+};
 
 export default function Cashflow() {
-  const { rawTransactions, isLoading, error, reload } = useCashflowData();
+  // Mode state
+  const [mode, setMode] = useState<CashflowMode>('amortised');
+  
+  // Data loading
+  const { rawTransactions, isLoading, error, reload } = useCashflowData(mode);
   
   // Filter state
-  const [timeRange, setTimeRange] = useState<TimeRangeType>('6M');
-  const [excludeInternalTransfers, setExcludeInternalTransfers] = useState(true);
-  const [showUnknown, setShowUnknown] = useState(true);
+  const [dateRange, setDateRange] = useState<DateRange>(DEFAULT_DATE_RANGE);
+  const [l1Filter, setL1Filter] = useState<string | null>(null);
+  const [l2Filter, setL2Filter] = useState<string | null>(null);
+  const [searchQuery, setSearchQuery] = useState('');
   const [drilldownCategory, setDrilldownCategory] = useState<string | null>(null);
+  const [selectedNode, setSelectedNode] = useState<{ type: string; value: string } | null>(null);
   
   const {
     totalIncome,
@@ -27,7 +45,10 @@ export default function Cashflow() {
     spendingByCategory,
     spendingByL1,
     spending,
-  } = useFilteredCashflow(rawTransactions, timeRange, excludeInternalTransfers, showUnknown);
+    allL1Categories,
+    allL2Categories,
+    sanityStats,
+  } = useFilteredCashflow(rawTransactions, dateRange, l1Filter, l2Filter, searchQuery);
 
   // Get L2 spending for drilldown
   const spendingByL2ForDrilldown = useMemo((): CategoryTotal[] => {
@@ -59,11 +80,48 @@ export default function Cashflow() {
       .sort((a, b) => b.total - a.total);
   }, [spending, drilldownCategory]);
 
+  // Filtered transactions for drilldown table
+  const drilldownTransactions = useMemo(() => {
+    if (!selectedNode) return spending;
+    
+    return spending.filter(tx => {
+      switch (selectedNode.type) {
+        case 'source_account':
+          return tx.source_account === selectedNode.value;
+        case 'L1':
+          return tx.L1 === selectedNode.value;
+        case 'L2':
+          return tx.L2 === selectedNode.value;
+        case 'counterparty':
+          return tx.counterparty === selectedNode.value;
+        default:
+          return true;
+      }
+    }).sort((a, b) => b.amount_aud - a.amount_aud);
+  }, [spending, selectedNode]);
+
   const handleDrillDown = (l1Category: string) => {
     setDrilldownCategory(l1Category);
+    setSelectedNode({ type: 'L1', value: l1Category });
   };
 
   const handleBack = () => {
+    setDrilldownCategory(null);
+    setSelectedNode(null);
+  };
+
+  const handleNodeClick = (type: string, value: string) => {
+    setSelectedNode({ type, value });
+    if (type === 'L1') {
+      setDrilldownCategory(value);
+    }
+  };
+
+  const handleClearFilters = () => {
+    setL1Filter(null);
+    setL2Filter(null);
+    setSearchQuery('');
+    setSelectedNode(null);
     setDrilldownCategory(null);
   };
 
@@ -110,22 +168,36 @@ export default function Cashflow() {
           <div>
             <h1 className="text-2xl font-bold tracking-tight">Cash Flow</h1>
             <p className="text-muted-foreground">
-              {rawTransactions.length.toLocaleString()} transactions loaded
+              {rawTransactions.length.toLocaleString()} transactions • {format(dateRange.from, 'MMM d, yyyy')} – {format(dateRange.to, 'MMM d, yyyy')}
             </p>
+          </div>
+          <CashflowModeToggle mode={mode} onChange={setMode} />
+        </div>
+
+        {/* Controls Row 1: Date picker and Search */}
+        <div className="flex flex-col sm:flex-row sm:items-center gap-4">
+          <CashflowDateRangePicker value={dateRange} onChange={setDateRange} />
+          <div className="relative flex-1 max-w-sm">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+            <Input
+              placeholder="Search counterparty or description..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="pl-9"
+            />
           </div>
         </div>
 
-        {/* Controls */}
-        <div className="flex flex-col sm:flex-row sm:items-center gap-4">
-          <CashflowTimeRange value={timeRange} onChange={setTimeRange} />
-          <div className="flex-1" />
-          <CashflowFilters
-            excludeInternalTransfers={excludeInternalTransfers}
-            onExcludeInternalTransfersChange={setExcludeInternalTransfers}
-            showUnknown={showUnknown}
-            onShowUnknownChange={setShowUnknown}
-          />
-        </div>
+        {/* Controls Row 2: Category filters */}
+        <CashflowCategoryFilters
+          l1Categories={allL1Categories}
+          l2Categories={allL2Categories}
+          l1Filter={l1Filter}
+          l2Filter={l2Filter}
+          onL1Change={setL1Filter}
+          onL2Change={setL2Filter}
+          onClear={handleClearFilters}
+        />
 
         {/* Summary */}
         <CashflowSummary
@@ -144,6 +216,7 @@ export default function Cashflow() {
           onDrillDown={handleDrillDown}
           drilldownCategory={drilldownCategory}
           onBack={handleBack}
+          onNodeClick={handleNodeClick}
         />
 
         {/* Tables */}
@@ -164,6 +237,17 @@ export default function Cashflow() {
             type="spending"
           />
         </div>
+
+        {/* Transactions Drilldown Table */}
+        <TransactionsTable
+          transactions={drilldownTransactions}
+          title={selectedNode ? `Transactions: ${selectedNode.value}` : 'All External Transactions'}
+          onClearFilter={() => setSelectedNode(null)}
+          showClearFilter={!!selectedNode}
+        />
+
+        {/* Data Sanity Panel */}
+        <DataSanityPanel stats={sanityStats} mode={mode} />
       </div>
     </AppLayout>
   );

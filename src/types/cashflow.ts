@@ -1,5 +1,7 @@
 // Cashflow transaction types based on uploaded CSV structure
 
+export type CashflowMode = 'amortised' | 'cashflow';
+
 export interface CashflowTransaction {
   date: Date;
   source_account: string;
@@ -25,7 +27,7 @@ export interface CategoryTotal {
 
 export interface SankeyNode {
   name: string;
-  type: 'income' | 'L1' | 'L2';
+  type: 'source_account' | 'L1' | 'L2' | 'counterparty';
 }
 
 export interface SankeyLink {
@@ -40,3 +42,23 @@ export interface SankeyData {
 }
 
 export type CashflowTimeRange = '1M' | '3M' | '6M' | '1Y' | 'ALL';
+
+export interface DateRange {
+  from: Date;
+  to: Date;
+}
+
+export interface CashflowFiltersState {
+  mode: CashflowMode;
+  dateRange: DateRange;
+  l1Filter: string | null;
+  l2Filter: string | null;
+  searchQuery: string;
+}
+
+export interface DataSanityStats {
+  totalIncome: number;
+  totalExternalSpend: number;
+  totalInternalTransfersExcluded: number;
+  rowCount: number;
+}

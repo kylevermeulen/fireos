@@ -1,5 +1,11 @@
 import { useState, useEffect, useMemo, useCallback } from 'react';
-import { CashflowTransaction, CategoryTotal, SankeyData, CashflowTimeRange } from '@/types/cashflow';
+import { 
+  CashflowTransaction, 
+  CategoryTotal, 
+  CashflowMode,
+  DateRange,
+  DataSanityStats 
+} from '@/types/cashflow';
 
 // Wise rent prepaid keywords for automatic categorization
 const WISE_RENT_KEYWORDS = [
@@ -31,6 +37,11 @@ function parseNumber(value: string | number): number | null {
   if (value === null || value === undefined || value === '') return null;
   const num = typeof value === 'number' ? value : parseFloat(String(value).replace(/,/g, ''));
   return isNaN(num) ? null : num;
+}
+
+function parseBoolean(value: string): boolean {
+  if (!value) return false;
+  return value.toLowerCase() === 'true';
 }
 
 function applyWiseRentFix(tx: CashflowTransaction): CashflowTransaction {
@@ -76,7 +87,66 @@ function parseCsvLine(line: string): string[] {
   return result;
 }
 
-export function useCashflowData() {
+async function loadCsvData(filePath: string): Promise<CashflowTransaction[]> {
+  const response = await fetch(filePath);
+  if (!response.ok) {
+    throw new Error(`Failed to load ${filePath}`);
+  }
+  
+  const csvContent = await response.text();
+  const lines = csvContent.split('\n').filter(line => line.trim());
+  
+  if (lines.length < 2) {
+    return [];
+  }
+  
+  const transactions: CashflowTransaction[] = [];
+  
+  for (let i = 1; i < lines.length; i++) {
+    const values = parseCsvLine(lines[i]);
+    if (values.length < 11) continue;
+    
+    const [date, source_account, counterparty, description, amount_native, currency, amount_aud, direction, is_internal_transfer, L1, L2] = values;
+    
+    const parsedDate = parseDate(date);
+    const parsedAmountAud = parseNumber(amount_aud);
+    
+    // Skip rows with no valid amount_aud
+    if (!parsedDate || parsedAmountAud === null) continue;
+    
+    let tx: CashflowTransaction = {
+      date: parsedDate,
+      source_account: source_account || '',
+      counterparty: counterparty || '',
+      description: description || '',
+      amount_native: parseNumber(amount_native) || 0,
+      currency: currency || 'AUD',
+      amount_aud: parsedAmountAud,
+      direction: direction === 'in' ? 'in' : 'out',
+      is_internal_transfer: parseBoolean(is_internal_transfer),
+      L1: L1 || '',
+      L2: L2 || '',
+    };
+    
+    // Apply Wise rent fix
+    tx = applyWiseRentFix(tx);
+    
+    // Set Unknown for empty categories
+    if (!tx.L1) tx.L1 = 'Unknown';
+    if (!tx.L2) tx.L2 = 'Unknown';
+    
+    transactions.push(tx);
+  }
+  
+  return transactions;
+}
+
+const CSV_PATHS: Record<CashflowMode, string> = {
+  amortised: '/data/cashflow_accrual.csv',
+  cashflow: '/data/cashflow_actual.csv',
+};
+
+export function useCashflowData(mode: CashflowMode = 'amortised') {
   const [rawTransactions, setRawTransactions] = useState<CashflowTransaction[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -86,65 +156,14 @@ export function useCashflowData() {
     setError(null);
     
     try {
-      const response = await fetch('/data/cashflow_transactions.csv');
-      if (!response.ok) {
-        throw new Error('Failed to load cashflow data');
-      }
-      
-      const csvContent = await response.text();
-      const lines = csvContent.split('\n').filter(line => line.trim());
-      
-      if (lines.length < 2) {
-        setRawTransactions([]);
-        return;
-      }
-      
-      // Skip header
-      const transactions: CashflowTransaction[] = [];
-      
-      for (let i = 1; i < lines.length; i++) {
-        const values = parseCsvLine(lines[i]);
-        if (values.length < 11) continue;
-        
-        const [date, source_account, counterparty, description, amount_native, currency, amount_aud, direction, is_internal_transfer, L1, L2] = values;
-        
-        const parsedDate = parseDate(date);
-        const parsedAmountAud = parseNumber(amount_aud);
-        
-        // Skip rows with no valid amount_aud
-        if (!parsedDate || parsedAmountAud === null) continue;
-        
-        let tx: CashflowTransaction = {
-          date: parsedDate,
-          source_account: source_account || '',
-          counterparty: counterparty || '',
-          description: description || '',
-          amount_native: parseNumber(amount_native) || 0,
-          currency: currency || 'AUD',
-          amount_aud: parsedAmountAud,
-          direction: direction === 'in' ? 'in' : 'out',
-          is_internal_transfer: is_internal_transfer?.toLowerCase() === 'true',
-          L1: L1 || '',
-          L2: L2 || '',
-        };
-        
-        // Apply Wise rent fix
-        tx = applyWiseRentFix(tx);
-        
-        // Set Unknown for empty categories
-        if (!tx.L1) tx.L1 = 'Unknown';
-        if (!tx.L2) tx.L2 = 'Unknown';
-        
-        transactions.push(tx);
-      }
-      
+      const transactions = await loadCsvData(CSV_PATHS[mode]);
       setRawTransactions(transactions);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to load data');
     } finally {
       setIsLoading(false);
     }
-  }, []);
+  }, [mode]);
 
   useEffect(() => {
     loadData();
@@ -155,54 +174,58 @@ export function useCashflowData() {
 
 export function useFilteredCashflow(
   transactions: CashflowTransaction[],
-  timeRange: CashflowTimeRange,
-  excludeInternalTransfers: boolean,
-  showUnknown: boolean
+  dateRange: DateRange,
+  l1Filter: string | null = null,
+  l2Filter: string | null = null,
+  searchQuery: string = ''
 ) {
   const filtered = useMemo(() => {
-    const now = new Date();
-    const cutoffDate = new Date(now);
-    
-    switch (timeRange) {
-      case '1M':
-        cutoffDate.setMonth(cutoffDate.getMonth() - 1);
-        break;
-      case '3M':
-        cutoffDate.setMonth(cutoffDate.getMonth() - 3);
-        break;
-      case '6M':
-        cutoffDate.setMonth(cutoffDate.getMonth() - 6);
-        break;
-      case '1Y':
-        cutoffDate.setFullYear(cutoffDate.getFullYear() - 1);
-        break;
-      case 'ALL':
-      default:
-        cutoffDate.setFullYear(2000); // Include all
-    }
-    
     return transactions.filter(tx => {
-      // Time range filter
-      if (tx.date < cutoffDate) return false;
+      // Date range filter
+      if (tx.date < dateRange.from || tx.date > dateRange.to) return false;
       
-      // Internal transfers filter
-      if (excludeInternalTransfers && tx.is_internal_transfer) return false;
+      // L1 filter
+      if (l1Filter && tx.L1 !== l1Filter) return false;
       
-      // Unknown filter
-      if (!showUnknown && tx.L1 === 'Unknown') return false;
+      // L2 filter
+      if (l2Filter && tx.L2 !== l2Filter) return false;
+      
+      // Search filter
+      if (searchQuery) {
+        const query = searchQuery.toLowerCase();
+        const matchesSearch = 
+          tx.counterparty.toLowerCase().includes(query) ||
+          tx.description.toLowerCase().includes(query);
+        if (!matchesSearch) return false;
+      }
       
       return true;
     });
-  }, [transactions, timeRange, excludeInternalTransfers, showUnknown]);
+  }, [transactions, dateRange, l1Filter, l2Filter, searchQuery]);
 
-  // Income: direction=in AND L1='Income' (per CSV ground truth requirements)
-  const income = useMemo(() => filtered.filter(tx => tx.direction === 'in' && tx.L1 === 'Income'), [filtered]);
-  const spending = useMemo(() => filtered.filter(tx => tx.direction === 'out'), [filtered]);
+  // Income: direction=in AND L1='Income' AND NOT internal transfer
+  const income = useMemo(() => 
+    filtered.filter(tx => tx.direction === 'in' && tx.L1 === 'Income' && !tx.is_internal_transfer), 
+    [filtered]
+  );
+  
+  // External spending: direction=out AND NOT internal transfer
+  const spending = useMemo(() => 
+    filtered.filter(tx => tx.direction === 'out' && !tx.is_internal_transfer), 
+    [filtered]
+  );
+
+  // Internal transfers (for sanity stats)
+  const internalTransfers = useMemo(() =>
+    filtered.filter(tx => tx.is_internal_transfer),
+    [filtered]
+  );
 
   const totalIncome = useMemo(() => income.reduce((sum, tx) => sum + tx.amount_aud, 0), [income]);
   const totalSpending = useMemo(() => spending.reduce((sum, tx) => sum + tx.amount_aud, 0), [spending]);
   const netPosition = useMemo(() => totalIncome - totalSpending, [totalIncome, totalSpending]);
 
+  // Income by L2
   const incomeByCategory = useMemo((): CategoryTotal[] => {
     const map = new Map<string, { total: number; count: number; L1: string; L2: string }>();
     
@@ -229,6 +252,7 @@ export function useFilteredCashflow(
       .sort((a, b) => b.total - a.total);
   }, [income, totalIncome]);
 
+  // Spending by L2 (for table display)
   const spendingByCategory = useMemo((): CategoryTotal[] => {
     const map = new Map<string, { total: number; count: number; L1: string; L2: string }>();
     
@@ -255,6 +279,7 @@ export function useFilteredCashflow(
       .sort((a, b) => b.total - a.total);
   }, [spending, totalSpending]);
 
+  // Spending by L1 (for Sankey)
   const spendingByL1 = useMemo((): CategoryTotal[] => {
     const map = new Map<string, { total: number; count: number }>();
     
@@ -278,61 +303,31 @@ export function useFilteredCashflow(
       .sort((a, b) => b.total - a.total);
   }, [spending, totalSpending]);
 
-  // Build Sankey data
-  const sankeyData = useMemo((): SankeyData => {
-    const nodes: { name: string; type: 'income' | 'L1' | 'L2' }[] = [];
-    const nodeIndexMap = new Map<string, number>();
-    
-    // Helper to add node if not exists
-    const addNode = (name: string, type: 'income' | 'L1' | 'L2'): number => {
-      const key = `${type}:${name}`;
-      if (nodeIndexMap.has(key)) {
-        return nodeIndexMap.get(key)!;
-      }
-      const index = nodes.length;
-      nodes.push({ name, type });
-      nodeIndexMap.set(key, index);
-      return index;
-    };
-    
-    // Build income category totals
-    const incomeTotals = new Map<string, number>();
-    income.forEach(tx => {
-      const cat = tx.L2 !== 'Unknown' ? tx.L2 : tx.L1;
-      incomeTotals.set(cat, (incomeTotals.get(cat) || 0) + tx.amount_aud);
+  // All unique L1 categories
+  const allL1Categories = useMemo(() => {
+    const set = new Set<string>();
+    transactions.forEach(tx => {
+      if (tx.L1) set.add(tx.L1);
     });
-    
-    // Build L1 spending totals
-    const l1Totals = new Map<string, number>();
-    spending.forEach(tx => {
-      l1Totals.set(tx.L1, (l1Totals.get(tx.L1) || 0) + tx.amount_aud);
+    return Array.from(set).sort();
+  }, [transactions]);
+
+  // All unique L2 categories
+  const allL2Categories = useMemo(() => {
+    const set = new Set<string>();
+    transactions.forEach(tx => {
+      if (tx.L2) set.add(tx.L2);
     });
-    
-    // Create links: Income sources → L1 spending (proportional distribution)
-    const links: { source: number; target: number; value: number }[] = [];
-    
-    incomeTotals.forEach((incomeAmount, incomeCategory) => {
-      const incomeNodeIdx = addNode(incomeCategory, 'income');
-      
-      // Distribute this income proportionally to all L1 spending categories
-      l1Totals.forEach((spendAmount, l1Category) => {
-        const l1NodeIdx = addNode(l1Category, 'L1');
-        // Proportion based on share of total income
-        const proportion = totalIncome > 0 ? incomeAmount / totalIncome : 0;
-        const flowValue = spendAmount * proportion;
-        
-        if (flowValue > 0) {
-          links.push({
-            source: incomeNodeIdx,
-            target: l1NodeIdx,
-            value: flowValue,
-          });
-        }
-      });
-    });
-    
-    return { nodes, links };
-  }, [income, spending, totalIncome]);
+    return Array.from(set).sort();
+  }, [transactions]);
+
+  // Data sanity stats
+  const sanityStats = useMemo((): DataSanityStats => ({
+    totalIncome,
+    totalExternalSpend: totalSpending,
+    totalInternalTransfersExcluded: internalTransfers.reduce((sum, tx) => sum + tx.amount_aud, 0),
+    rowCount: filtered.length,
+  }), [totalIncome, totalSpending, internalTransfers, filtered.length]);
 
   return {
     filtered,
@@ -344,6 +339,8 @@ export function useFilteredCashflow(
     incomeByCategory,
     spendingByCategory,
     spendingByL1,
-    sankeyData,
+    allL1Categories,
+    allL2Categories,
+    sanityStats,
   };
 }

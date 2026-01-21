@@ -26,6 +26,7 @@ interface SankeyDiagramProps {
   onDrillDown?: (l1Category: string) => void;
   drilldownCategory?: string | null;
   onBack?: () => void;
+  onNodeClick?: (type: string, value: string) => void;
 }
 
 // Color palette - minimal with primary accent
@@ -63,6 +64,7 @@ export function SankeyDiagram({
   onDrillDown,
   drilldownCategory,
   onBack,
+  onNodeClick,
 }: SankeyDiagramProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const [containerWidth, setContainerWidth] = useState(800);
@@ -251,8 +253,11 @@ export function SankeyDiagram({
                       if (node.type === 'L1' && onDrillDown && !drilldownCategory) {
                         onDrillDown(node.name);
                       }
+                      if (onNodeClick) {
+                        onNodeClick(node.type, node.name);
+                      }
                     }}
-                    style={{ cursor: node.type === 'L1' && !drilldownCategory ? 'pointer' : 'default' }}
+                    style={{ cursor: 'pointer' }}
                   >
                     {/* Node bar */}
                     <rect
