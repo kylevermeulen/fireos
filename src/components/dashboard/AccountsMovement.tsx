@@ -3,7 +3,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { formatCompactCurrency, formatPercent, getCountryFlag, getCountryName } from '@/lib/format';
 import { useAccounts, useBalances, useLiabilities, useLiabilityBalances, useValuations } from '@/hooks/useWealthData';
-import { TimeRange, filterByTimeRange } from '@/components/dashboard/TimeRangeSelector';
+import { TimeRange, filterByTimeRange } from '@/contexts/TimeRangeContext';
 import { MonthlyChangeChart } from '@/components/dashboard/MonthlyChangeChart';
 import { ChevronDown, ChevronRight } from 'lucide-react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
