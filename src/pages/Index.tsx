@@ -1,4 +1,5 @@
 import { useState, useMemo } from 'react';
+import { Link } from 'react-router-dom';
 import { AppLayout } from '@/components/layout/AppLayout';
 import { EnhancedStatCard } from '@/components/dashboard/EnhancedStatCard';
 import { TimeRangeSelector, TimeRange, filterByTimeRange } from '@/components/dashboard/TimeRangeSelector';
@@ -8,17 +9,23 @@ import { AccountsMovement } from '@/components/dashboard/AccountsMovement';
 import { NetWorthChart } from '@/components/charts/NetWorthChart';
 import { AllocationChart } from '@/components/charts/AllocationChart';
 import { formatCurrency, formatChange } from '@/lib/format';
-import { useWealthSnapshots, useBalances } from '@/hooks/useWealthData';
-import { Wallet, TrendingUp, PiggyBank, Landmark } from 'lucide-react';
+import { useWealthSnapshots, useBalances, useAccounts } from '@/hooks/useWealthData';
+import { useAuth } from '@/hooks/useAuth';
+import { Wallet, TrendingUp, PiggyBank, Landmark, Upload, Database } from 'lucide-react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
+import { Button } from '@/components/ui/button';
 
 export default function Index() {
   const [timeRange, setTimeRange] = useState<TimeRange>('ALL');
   const [allocationMode, setAllocationMode] = useState<AllocationMode>('accessible');
   
-  const { snapshots, isLoading } = useWealthSnapshots();
-  const { data: balances } = useBalances();
+  const { sessionReady, user } = useAuth();
+  const { snapshots, isLoading: snapshotsLoading } = useWealthSnapshots();
+  const { data: balances, isLoading: balancesLoading } = useBalances();
+  const { data: accounts, isLoading: accountsLoading } = useAccounts();
+
+  const isLoading = !sessionReady || snapshotsLoading || balancesLoading || accountsLoading;
 
   // Filter snapshots by time range
   const filteredSnapshots = useMemo(() => {
@@ -44,6 +51,10 @@ export default function Index() {
   const firstDate = snapshots.length > 0 ? snapshots[0].date : null;
   const lastDate = snapshots.length > 0 ? snapshots[snapshots.length - 1].date : null;
 
+  // Determine data state
+  const hasAccounts = (accounts?.length ?? 0) > 0;
+  const hasBalances = (balances?.length ?? 0) > 0;
+
   if (isLoading) {
     return (
       <AppLayout>
@@ -67,7 +78,58 @@ export default function Index() {
     );
   }
 
-  // If no data, show empty state
+  // State machine for empty states
+  if (!hasAccounts) {
+    return (
+      <AppLayout>
+        <div className="space-y-6">
+          <div>
+            <h1 className="text-2xl font-bold tracking-tight">Dashboard</h1>
+            <p className="text-muted-foreground">Household wealth overview</p>
+          </div>
+          <Card>
+            <CardContent className="flex flex-col items-center justify-center py-12">
+              <Database className="h-12 w-12 text-muted-foreground mb-4" />
+              <h3 className="text-lg font-medium mb-2">No Accounts Configured</h3>
+              <p className="text-muted-foreground text-center max-w-md mb-4">
+                First, seed your accounts to set up your financial structure.
+              </p>
+              <Button asChild>
+                <Link to="/settings">Go to Settings</Link>
+              </Button>
+            </CardContent>
+          </Card>
+        </div>
+      </AppLayout>
+    );
+  }
+
+  if (!hasBalances) {
+    return (
+      <AppLayout>
+        <div className="space-y-6">
+          <div>
+            <h1 className="text-2xl font-bold tracking-tight">Dashboard</h1>
+            <p className="text-muted-foreground">Household wealth overview</p>
+          </div>
+          <Card>
+            <CardContent className="flex flex-col items-center justify-center py-12">
+              <Upload className="h-12 w-12 text-muted-foreground mb-4" />
+              <h3 className="text-lg font-medium mb-2">Accounts Ready — Import Snapshots</h3>
+              <p className="text-muted-foreground text-center max-w-md mb-4">
+                You have {accounts?.length} accounts configured. Import your snapshot CSV to populate balance history.
+              </p>
+              <Button asChild>
+                <Link to="/settings">Import Snapshot CSV</Link>
+              </Button>
+            </CardContent>
+          </Card>
+        </div>
+      </AppLayout>
+    );
+  }
+
+  // If no data after all checks, show generic empty
   if (!latestSnapshot || snapshots.length === 0) {
     return (
       <AppLayout>
@@ -79,9 +141,9 @@ export default function Index() {
           <Card>
             <CardContent className="flex flex-col items-center justify-center py-12">
               <Wallet className="h-12 w-12 text-muted-foreground mb-4" />
-              <h3 className="text-lg font-medium mb-2">No Data Yet</h3>
+              <h3 className="text-lg font-medium mb-2">Processing Data</h3>
               <p className="text-muted-foreground text-center max-w-md">
-                Go to Settings to seed your accounts and import your historical balance snapshots.
+                Your data is being processed. Refresh the page if this persists.
               </p>
             </CardContent>
           </Card>

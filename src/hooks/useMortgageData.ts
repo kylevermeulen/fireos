@@ -3,6 +3,8 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useMemo } from 'react';
 import { useLiabilities, useLiabilityBalances, useAccounts, useBalances } from './useWealthData';
 import { useAuth } from './useAuth';
+import { useManualOverrides, getOverrideValue } from './useManualOverrides';
+import type { Json } from '@/integrations/supabase/types';
 
 // Weekly rent constant (default: $1,300/week = $67,600/year)
 const WEEKLY_RENT = 1300;
@@ -41,8 +43,9 @@ interface MortgageSnapshot {
   monthlyInterest: number;
 }
 
+// Legacy hook for backwards compatibility - reads from mortgage_overrides table
 export function useMortgageOverrides() {
-  const { user } = useAuth();
+  const { user, sessionReady } = useAuth();
 
   return useQuery({
     queryKey: ['mortgage_overrides', user?.id],
@@ -57,10 +60,11 @@ export function useMortgageOverrides() {
       if (error) throw error;
       return data as MortgageOverride[];
     },
-    enabled: !!user?.id,
+    enabled: sessionReady && !!user?.id,
   });
 }
 
+// Updated upsert that writes to BOTH tables for now (migration period)
 export function useUpsertMortgageOverride() {
   const queryClient = useQueryClient();
   const { user } = useAuth();
@@ -69,15 +73,32 @@ export function useUpsertMortgageOverride() {
     mutationFn: async ({ fieldName, fieldValue }: { fieldName: string; fieldValue: { value: number; liability_id?: string } }) => {
       if (!user?.id) throw new Error('Not authenticated');
 
-      const { data, error } = await supabase
+      // Write to legacy mortgage_overrides table
+      const { error: legacyError } = await supabase
         .from('mortgage_overrides')
         .upsert(
-          {
+          [{
             user_id: user.id,
             field_name: fieldName,
-            field_value: fieldValue,
-          },
+            field_value: fieldValue as unknown as Json,
+          }],
           { onConflict: 'user_id,field_name' }
+        );
+
+      if (legacyError) throw legacyError;
+
+      // Also write to new manual_overrides table for future
+      const { data, error } = await supabase
+        .from('manual_overrides')
+        .upsert(
+          [{
+            user_id: user.id,
+            entity_type: 'mortgage',
+            entity_key: fieldValue.liability_id ?? 'global',
+            field_key: fieldName,
+            value_json: fieldValue as unknown as Json,
+          }],
+          { onConflict: 'user_id,entity_type,entity_key,field_key' }
         )
         .select()
         .single();
@@ -87,6 +108,7 @@ export function useUpsertMortgageOverride() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['mortgage_overrides'] });
+      queryClient.invalidateQueries({ queryKey: ['manual_overrides'] });
     },
   });
 }

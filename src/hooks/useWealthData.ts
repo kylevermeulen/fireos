@@ -1,6 +1,7 @@
 import { supabase } from '@/integrations/supabase/client';
 import { useQuery } from '@tanstack/react-query';
 import { useMemo } from 'react';
+import { useAuth } from './useAuth';
 
 interface Account {
   id: string;
@@ -65,8 +66,10 @@ interface MonthlySnapshot {
 }
 
 export function useAccounts() {
+  const { user, sessionReady } = useAuth();
+
   return useQuery({
-    queryKey: ['accounts'],
+    queryKey: ['accounts', user?.id],
     queryFn: async () => {
       const { data, error } = await supabase
         .from('accounts')
@@ -77,12 +80,16 @@ export function useAccounts() {
       if (error) throw error;
       return data as Account[];
     },
+    enabled: sessionReady && !!user?.id,
+    staleTime: 1000 * 60 * 5, // 5 minutes
   });
 }
 
 export function useLiabilities() {
+  const { user, sessionReady } = useAuth();
+
   return useQuery({
-    queryKey: ['liabilities'],
+    queryKey: ['liabilities', user?.id],
     queryFn: async () => {
       const { data, error } = await supabase
         .from('liabilities')
@@ -92,12 +99,16 @@ export function useLiabilities() {
       if (error) throw error;
       return data as Liability[];
     },
+    enabled: sessionReady && !!user?.id,
+    staleTime: 1000 * 60 * 5,
   });
 }
 
 export function useBalances() {
+  const { user, sessionReady } = useAuth();
+
   return useQuery({
-    queryKey: ['balances'],
+    queryKey: ['balances', user?.id],
     queryFn: async () => {
       const { data, error } = await supabase
         .from('balances')
@@ -107,12 +118,16 @@ export function useBalances() {
       if (error) throw error;
       return data as Balance[];
     },
+    enabled: sessionReady && !!user?.id,
+    staleTime: 1000 * 60 * 5,
   });
 }
 
 export function useLiabilityBalances() {
+  const { user, sessionReady } = useAuth();
+
   return useQuery({
-    queryKey: ['liability_balances'],
+    queryKey: ['liability_balances', user?.id],
     queryFn: async () => {
       const { data, error } = await supabase
         .from('liability_balances')
@@ -122,12 +137,16 @@ export function useLiabilityBalances() {
       if (error) throw error;
       return data as LiabilityBalance[];
     },
+    enabled: sessionReady && !!user?.id,
+    staleTime: 1000 * 60 * 5,
   });
 }
 
 export function useValuations() {
+  const { user, sessionReady } = useAuth();
+
   return useQuery({
-    queryKey: ['valuations'],
+    queryKey: ['valuations', user?.id],
     queryFn: async () => {
       const { data, error } = await supabase
         .from('valuations')
@@ -137,6 +156,8 @@ export function useValuations() {
       if (error) throw error;
       return data as Valuation[];
     },
+    enabled: sessionReady && !!user?.id,
+    staleTime: 1000 * 60 * 5,
   });
 }
 

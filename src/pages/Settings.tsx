@@ -20,6 +20,7 @@ import {
 
 import { SnapshotImporter } from '@/components/settings/SnapshotImporter';
 import { BalanceInputForm } from '@/components/settings/BalanceInputForm';
+import { DataStatusCard } from '@/components/settings/DataStatusCard';
 import { useAuth } from '@/hooks/useAuth';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
@@ -146,6 +147,9 @@ export default function Settings() {
             </div>
           </CardContent>
         </Card>
+
+        {/* Data Status Card */}
+        <DataStatusCard />
 
         {/* Snapshot Importer */}
         <SnapshotImporter />
