@@ -1,13 +1,37 @@
+import { useState } from 'react';
 import { AppLayout } from '@/components/layout/AppLayout';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { NetWorthChart } from '@/components/charts/NetWorthChart';
+import { Switch } from '@/components/ui/switch';
+import { Label } from '@/components/ui/label';
 import { useWealthSnapshots } from '@/hooks/useWealthData';
 import { Skeleton } from '@/components/ui/skeleton';
-import { formatCurrency } from '@/lib/format';
 import { Wallet } from 'lucide-react';
+import { ProjectionScenarioSelector, SCENARIOS, ScenarioType } from '@/components/projections/ProjectionScenarioSelector';
+import { ProjectionInputsCard } from '@/components/projections/ProjectionInputsCard';
+import { ProjectionChart } from '@/components/projections/ProjectionChart';
+import { AssetBreakdownProjection } from '@/components/projections/AssetBreakdownProjection';
 
 export default function Projections() {
-  const { snapshots, latestSnapshot, isLoading } = useWealthSnapshots();
+  const { latestSnapshot, isLoading } = useWealthSnapshots();
+  
+  const [scenario, setScenario] = useState<ScenarioType>('base');
+  const [monthlyContribution, setMonthlyContribution] = useState(5000);
+  const [showInflationAdjusted, setShowInflationAdjusted] = useState(true);
+  
+  const selectedScenario = SCENARIOS.find(s => s.type === scenario)!;
+  const [sharesReturn, setSharesReturn] = useState(selectedScenario.sharesReturn);
+  const [cryptoReturn, setCryptoReturn] = useState(selectedScenario.cryptoReturn);
+  const [propertyGrowth, setPropertyGrowth] = useState(selectedScenario.propertyGrowth);
+  const [inflationRate, setInflationRate] = useState(selectedScenario.inflationRate);
+
+  const handleScenarioChange = (newScenario: ScenarioType) => {
+    setScenario(newScenario);
+    const s = SCENARIOS.find(sc => sc.type === newScenario)!;
+    setSharesReturn(s.sharesReturn);
+    setCryptoReturn(s.cryptoReturn);
+    setPropertyGrowth(s.propertyGrowth);
+    setInflationRate(s.inflationRate);
+  };
 
   if (isLoading) {
     return (
@@ -15,7 +39,7 @@ export default function Projections() {
         <div className="space-y-6">
           <div>
             <h1 className="text-2xl font-bold tracking-tight">Projections</h1>
-            <p className="text-muted-foreground">Wealth forecast</p>
+            <p className="text-muted-foreground">Wealth forecast with asset-class returns</p>
           </div>
           <Skeleton className="h-[400px]" />
         </div>
@@ -23,8 +47,7 @@ export default function Projections() {
     );
   }
 
-  // If no data, show empty state
-  if (!latestSnapshot || snapshots.length === 0) {
+  if (!latestSnapshot) {
     return (
       <AppLayout>
         <div className="space-y-6">
@@ -46,109 +69,78 @@ export default function Projections() {
     );
   }
 
-  // Historical data for the chart
-  const historicalData = snapshots.map(s => ({
-    date: s.date,
-    netWorth: s.netWorth,
-    liquid: s.liquidWealth,
-    illiquid: s.illiquidWealth,
-  }));
-
-  // Monthly projection: 60 months (5 years) from last snapshot
-  const lastDate = new Date(latestSnapshot.date);
-  const growthRate = 0.07; // 7% annual growth assumption
-  const monthlyGrowthRate = Math.pow(1 + growthRate, 1/12) - 1; // Convert to monthly
-  
-  const projectionData = [];
-  for (let i = 1; i <= 60; i++) {
-    const futureDate = new Date(lastDate);
-    futureDate.setMonth(futureDate.getMonth() + i);
-    
-    const multiplier = Math.pow(1 + monthlyGrowthRate, i);
-    projectionData.push({
-      date: futureDate.toISOString().split('T')[0],
-      netWorth: Math.round(latestSnapshot.netWorth * multiplier),
-      liquid: Math.round(latestSnapshot.liquidWealth * multiplier),
-      illiquid: Math.round(latestSnapshot.illiquidWealth * multiplier),
-    });
-  }
-
-  const allData = [...historicalData, ...projectionData];
-
-  // Calculate targets (at 12, 36, 60 months)
-  const year1Projection = projectionData[11]; // Month 12
-  const year3Projection = projectionData[35]; // Month 36
-  const year5Projection = projectionData[59]; // Month 60
+  const startingValues = {
+    investmentsAud: latestSnapshot.investmentsAud,
+    cryptoAud: latestSnapshot.cryptoAud,
+    homeValue: latestSnapshot.homeValue,
+    businessValue: latestSnapshot.businessValue,
+    cashAud: latestSnapshot.cashAud,
+    retirementAud: latestSnapshot.retirementAud,
+  };
 
   return (
     <AppLayout>
       <div className="space-y-6">
-        <div>
-          <h1 className="text-2xl font-bold tracking-tight">Projections</h1>
-          <p className="text-muted-foreground">5-year wealth forecast (monthly projections at 7% annual growth)</p>
+        <div className="flex items-start justify-between">
+          <div>
+            <h1 className="text-2xl font-bold tracking-tight">Projections</h1>
+            <p className="text-muted-foreground">5-year wealth forecast with asset-class returns</p>
+          </div>
+          <div className="flex items-center gap-2">
+            <Switch
+              id="inflation"
+              checked={showInflationAdjusted}
+              onCheckedChange={setShowInflationAdjusted}
+            />
+            <Label htmlFor="inflation" className="text-sm">Inflation Adjusted</Label>
+          </div>
         </div>
 
-        <NetWorthChart data={allData} title="Historical + Projected Net Worth" />
-
-        <div className="grid gap-4 md:grid-cols-4">
-          <Card>
-            <CardHeader className="pb-2">
-              <CardTitle className="text-base">Current</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <p className="text-2xl font-bold">{formatCurrency(latestSnapshot.netWorth, 'AUD', { compact: true })}</p>
-              <p className="text-sm text-muted-foreground">
-                as of {new Date(latestSnapshot.date).toLocaleDateString('en-AU', { month: 'short', year: 'numeric' })}
-              </p>
-            </CardContent>
-          </Card>
-          <Card>
-            <CardHeader className="pb-2">
-              <CardTitle className="text-base">1-Year</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <p className="text-2xl font-bold">{formatCurrency(year1Projection.netWorth, 'AUD', { compact: true })}</p>
-              <p className="text-sm text-success">
-                +{formatCurrency(year1Projection.netWorth - latestSnapshot.netWorth, 'AUD', { compact: true })}
-              </p>
-            </CardContent>
-          </Card>
-          <Card>
-            <CardHeader className="pb-2">
-              <CardTitle className="text-base">3-Year</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <p className="text-2xl font-bold">{formatCurrency(year3Projection.netWorth, 'AUD', { compact: true })}</p>
-              <p className="text-sm text-success">
-                +{formatCurrency(year3Projection.netWorth - latestSnapshot.netWorth, 'AUD', { compact: true })}
-              </p>
-            </CardContent>
-          </Card>
-          <Card className="border-primary">
-            <CardHeader className="pb-2">
-              <CardTitle className="text-base">5-Year Target</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <p className="text-2xl font-bold">{formatCurrency(year5Projection.netWorth, 'AUD', { compact: true })}</p>
-              <p className="text-sm text-success">
-                +{formatCurrency(year5Projection.netWorth - latestSnapshot.netWorth, 'AUD', { compact: true })}
-              </p>
-            </CardContent>
-          </Card>
+        <div className="grid gap-6 lg:grid-cols-3">
+          <ProjectionScenarioSelector selected={scenario} onSelect={handleScenarioChange} />
+          <div className="lg:col-span-2">
+            <ProjectionInputsCard
+              monthlyContribution={monthlyContribution}
+              onMonthlyContributionChange={setMonthlyContribution}
+              sharesReturn={sharesReturn}
+              onSharesReturnChange={setSharesReturn}
+              cryptoReturn={cryptoReturn}
+              onCryptoReturnChange={setCryptoReturn}
+              propertyGrowth={propertyGrowth}
+              onPropertyGrowthChange={setPropertyGrowth}
+              inflationRate={inflationRate}
+              onInflationRateChange={setInflationRate}
+            />
+          </div>
         </div>
+
+        <ProjectionChart
+          startingValues={startingValues}
+          monthlyContribution={monthlyContribution}
+          sharesReturn={sharesReturn}
+          cryptoReturn={cryptoReturn}
+          propertyGrowth={propertyGrowth}
+          inflationRate={inflationRate}
+          showInflationAdjusted={showInflationAdjusted}
+        />
+
+        <AssetBreakdownProjection
+          startingValues={startingValues}
+          monthlyContribution={monthlyContribution}
+          sharesReturn={sharesReturn}
+          cryptoReturn={cryptoReturn}
+          propertyGrowth={propertyGrowth}
+        />
 
         <Card>
           <CardHeader>
-            <CardTitle>Projection Assumptions</CardTitle>
+            <CardTitle className="text-base">Projection Assumptions</CardTitle>
           </CardHeader>
-          <CardContent className="text-muted-foreground">
-            <p>This projection uses a 7% compound annual growth rate applied monthly. Future versions will include:</p>
-            <ul className="list-disc list-inside mt-2 space-y-1">
-              <li>Different growth rates by asset class (shares, crypto, property)</li>
-              <li>Conservative / Base / Aggressive scenarios</li>
-              <li>Monthly savings contributions</li>
-              <li>Inflation adjustments</li>
-            </ul>
+          <CardContent className="text-sm text-muted-foreground space-y-1">
+            <p>• Monthly contributions split: 70% to investments, 30% to cash</p>
+            <p>• Retirement grows at 80% of shares return rate</p>
+            <p>• Property includes home and business valuations</p>
+            <p>• Inflation adjustment shows purchasing power in today's dollars</p>
           </CardContent>
         </Card>
       </div>
