@@ -2,6 +2,7 @@ import { useMemo, useState } from 'react';
 import { AppLayout } from '@/components/layout/AppLayout';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { useAccounts, useBalances } from '@/hooks/useWealthData';
+import { useAllHoldings, useLatestPrices } from '@/hooks/useHoldings';
 import { Skeleton } from '@/components/ui/skeleton';
 import { formatCompactCurrency, formatDate, formatPercent } from '@/lib/format';
 import { PieChart, TrendingUp, TrendingDown, Briefcase, Bitcoin, LineChart } from 'lucide-react';
@@ -40,8 +41,10 @@ export default function Investments() {
   );
   const { data: accounts, isLoading: accountsLoading } = useAccounts();
   const { data: balances, isLoading: balancesLoading } = useBalances();
+  const { data: allHoldings, isLoading: holdingsLoading } = useAllHoldings();
+  const { data: priceMap, isLoading: pricesLoading } = useLatestPrices();
 
-  const isLoading = accountsLoading || balancesLoading;
+  const isLoading = accountsLoading || balancesLoading || holdingsLoading || pricesLoading;
 
   const toggleGroup = (group: InvestmentCategory) => {
     setExpandedGroups(prev => {
@@ -60,8 +63,6 @@ export default function Investments() {
       return null;
     }
 
-    // Get investment accounts (investment + crypto, exclude retirement)
-    // We include crypto under Investments as per requirements
     const investmentAccounts = accounts.filter(
       a => a.account_type === 'investment' || a.account_type === 'crypto'
     );
@@ -70,62 +71,69 @@ export default function Investments() {
       return null;
     }
 
-    // Create balance snapshots with dates
+    // Calculate holdings-based value per account
+    const holdingsValueByAccount = new Map<string, number>();
+    if (allHoldings && priceMap) {
+      for (const h of allHoldings) {
+        const price = priceMap.get(h.symbol);
+        const value = h.quantity * (price?.price || 0);
+        holdingsValueByAccount.set(
+          h.account_id,
+          (holdingsValueByAccount.get(h.account_id) || 0) + value
+        );
+      }
+    }
+
     const accountIds = new Set(investmentAccounts.map(a => a.id));
     const relevantBalances = balances.filter(b => accountIds.has(b.account_id));
 
-    // Get all unique dates
     const dateSet = new Set(relevantBalances.map(b => b.balance_date));
     const allDates = Array.from(dateSet).sort();
 
-    // Build snapshots per date
     const snapshots = allDates.map(date => {
       const dateBalances = relevantBalances.filter(b => b.balance_date === date);
       const total = dateBalances.reduce((sum, b) => sum + b.amount_aud, 0);
       return { date, total };
     });
 
-    // Filter by time range
     const filteredSnapshots = filterByTimeRange(snapshots, timeRange, customDateRange);
 
-    // Get start and end values
     const startSnapshot = filteredSnapshots[0];
     const endSnapshot = filteredSnapshots[filteredSnapshots.length - 1];
 
-    const totalBalance = endSnapshot?.total || 0;
     const startBalance = startSnapshot?.total || 0;
-    const delta = totalBalance - startBalance;
-    const deltaPercent = startBalance > 0 ? delta / startBalance : 0;
     const latestDate = endSnapshot?.date || '';
 
-    // Get latest and start balance per account
-    const latestByAccount = new Map<string, { balance: number; date: string }>();
-    const startByAccount = new Map<string, { balance: number; date: string }>();
+    // Get start balance per account (for delta calc)
+    const startByAccount = new Map<string, number>();
+    for (const balance of relevantBalances) {
+      if (startSnapshot && balance.balance_date === startSnapshot.date) {
+        startByAccount.set(balance.account_id, balance.amount_aud);
+      }
+    }
 
+    // Build account details — use holdings value when available, else latest balance
+    const latestByAccount = new Map<string, { balance: number; date: string }>();
     for (const balance of relevantBalances) {
       if (endSnapshot && balance.balance_date === endSnapshot.date) {
         latestByAccount.set(balance.account_id, { balance: balance.amount_aud, date: balance.balance_date });
       }
-      if (startSnapshot && balance.balance_date === startSnapshot.date) {
-        startByAccount.set(balance.account_id, { balance: balance.amount_aud, date: balance.balance_date });
-      }
     }
 
-    // Build account details with categories
     const accountDetails: AccountWithBalance[] = investmentAccounts.map(account => {
+      const holdingsValue = holdingsValueByAccount.get(account.id);
+      const hasHoldings = holdingsValue !== undefined && holdingsValue > 0;
       const latest = latestByAccount.get(account.id);
-      const start = startByAccount.get(account.id);
-      const balance = latest?.balance || 0;
-      const startBalance = start?.balance || 0;
-      const accountDelta = balance - startBalance;
+      
+      // Prefer holdings-calculated value over balance snapshot
+      const balance = hasHoldings ? holdingsValue : (latest?.balance || 0);
+      const accountStartBalance = startByAccount.get(account.id) || 0;
+      const accountDelta = balance - accountStartBalance;
 
-      // Categorize: crypto accounts → 'crypto', all others → 'public'
-      // Note: Carbon startup will be added as 'private' via seeder
       let category: InvestmentCategory = 'public';
       if (account.account_type === 'crypto') {
         category = 'crypto';
       }
-      // Check for private investments by liquidity_class
       if (account.liquidity_class === 'illiquid' && account.account_type === 'investment') {
         category = 'private';
       }
@@ -142,14 +150,12 @@ export default function Investments() {
       };
     }).sort((a, b) => b.balance - a.balance);
 
-    // Group by category
     const byCategory = {
       public: accountDetails.filter(a => a.category === 'public'),
       crypto: accountDetails.filter(a => a.category === 'crypto'),
       private: accountDetails.filter(a => a.category === 'private'),
     };
 
-    // Calculate totals by category
     const publicTotal = byCategory.public.reduce((sum, a) => sum + a.balance, 0);
     const cryptoTotal = byCategory.crypto.reduce((sum, a) => sum + a.balance, 0);
     const privateTotal = byCategory.private.reduce((sum, a) => sum + a.balance, 0);
@@ -157,6 +163,10 @@ export default function Investments() {
     const publicDelta = byCategory.public.reduce((sum, a) => sum + a.delta, 0);
     const cryptoDelta = byCategory.crypto.reduce((sum, a) => sum + a.delta, 0);
     const privateDelta = byCategory.private.reduce((sum, a) => sum + a.delta, 0);
+
+    const totalBalance = publicTotal + cryptoTotal + privateTotal;
+    const delta = totalBalance - startBalance;
+    const deltaPercent = startBalance > 0 ? delta / startBalance : 0;
 
     return {
       totalBalance,
@@ -170,7 +180,7 @@ export default function Investments() {
         private: { balance: privateTotal, delta: privateDelta },
       },
     };
-  }, [accounts, balances, timeRange, customDateRange]);
+  }, [accounts, balances, allHoldings, priceMap, timeRange, customDateRange]);
 
   const timeRangeLabel = timeRange === 'custom' ? 'Period' : timeRange;
 
