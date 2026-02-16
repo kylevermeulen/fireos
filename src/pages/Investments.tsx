@@ -17,6 +17,8 @@ import {
 } from '@/components/ui/table';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { ChevronDown } from 'lucide-react';
+import { HoldingsTable } from '@/components/investments/HoldingsTable';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 
 type InvestmentCategory = 'public' | 'crypto' | 'private';
 
@@ -356,11 +358,52 @@ export default function Investments() {
           </CardContent>
         </Card>
 
+        {/* Holdings Detail */}
+        {(() => {
+          const allInvestmentAccounts = [
+            ...investmentData.byCategory.public,
+            ...investmentData.byCategory.crypto,
+            ...investmentData.byCategory.private,
+          ];
+          if (allInvestmentAccounts.length === 0) return null;
+          return (
+            <Card>
+              <CardHeader>
+                <CardTitle>Holdings Detail</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <Tabs defaultValue={allInvestmentAccounts[0]?.id}>
+                  <TabsList className="flex-wrap h-auto gap-1">
+                    {allInvestmentAccounts.map(acc => (
+                      <TabsTrigger key={acc.id} value={acc.id} className="text-xs">
+                        {acc.name}
+                      </TabsTrigger>
+                    ))}
+                  </TabsList>
+                  {allInvestmentAccounts.map(acc => {
+                    const origAccount = accounts?.find(a => a.id === acc.id);
+                    const currency = origAccount?.currency || 'AUD';
+                    return (
+                      <TabsContent key={acc.id} value={acc.id}>
+                        <HoldingsTable
+                          accountId={acc.id}
+                          accountName={acc.name}
+                          accountCurrency={currency as 'AUD' | 'USD' | 'IDR'}
+                        />
+                      </TabsContent>
+                    );
+                  })}
+                </Tabs>
+              </CardContent>
+            </Card>
+          );
+        })()}
+
         <Card>
           <CardContent className="p-4">
             <p className="text-sm text-muted-foreground">
               Investments include public market holdings (ETFs, shares), cryptocurrency, and private investments.
-              Retirement accounts are tracked separately and excluded from these totals.
+              Add individual holdings per account to track performance. Use "Refresh Prices" to fetch live market data.
             </p>
           </CardContent>
         </Card>
