@@ -2,7 +2,8 @@ import { useMemo, useState } from 'react';
 import { AppLayout } from '@/components/layout/AppLayout';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { useAccounts, useBalances } from '@/hooks/useWealthData';
-import { useAllHoldings, useLatestPrices } from '@/hooks/useHoldings';
+import { useHoldingsValues } from '@/hooks/useHoldingsValues';
+import { useAllHoldings } from '@/hooks/useHoldings';
 import { Skeleton } from '@/components/ui/skeleton';
 import { formatCompactCurrency, formatDate, formatPercent } from '@/lib/format';
 import { PieChart, TrendingUp, TrendingDown, Briefcase, Bitcoin, LineChart } from 'lucide-react';
@@ -42,9 +43,9 @@ export default function Investments() {
   const { data: accounts, isLoading: accountsLoading } = useAccounts();
   const { data: balances, isLoading: balancesLoading } = useBalances();
   const { data: allHoldings, isLoading: holdingsLoading } = useAllHoldings();
-  const { data: priceMap, isLoading: pricesLoading } = useLatestPrices();
+  const { holdingsValueByAccount, isLoading: holdingsValLoading } = useHoldingsValues();
 
-  const isLoading = accountsLoading || balancesLoading || holdingsLoading || pricesLoading;
+  const isLoading = accountsLoading || balancesLoading || holdingsLoading || holdingsValLoading;
 
   const toggleGroup = (group: InvestmentCategory) => {
     setExpandedGroups(prev => {
@@ -71,19 +72,7 @@ export default function Investments() {
       return null;
     }
 
-    // Calculate holdings-based value per account
-    const holdingsValueByAccount = new Map<string, number>();
-    if (allHoldings && priceMap) {
-      for (const h of allHoldings) {
-        const price = priceMap.get(h.symbol);
-        const value = h.quantity * (price?.price || 0);
-        holdingsValueByAccount.set(
-          h.account_id,
-          (holdingsValueByAccount.get(h.account_id) || 0) + value
-        );
-      }
-    }
-
+    // holdingsValueByAccount comes from the shared hook
     const accountIds = new Set(investmentAccounts.map(a => a.id));
     const relevantBalances = balances.filter(b => accountIds.has(b.account_id));
 
@@ -180,7 +169,7 @@ export default function Investments() {
         private: { balance: privateTotal, delta: privateDelta },
       },
     };
-  }, [accounts, balances, allHoldings, priceMap, timeRange, customDateRange]);
+  }, [accounts, balances, allHoldings, holdingsValueByAccount, timeRange, customDateRange]);
 
   const timeRangeLabel = timeRange === 'custom' ? 'Period' : timeRange;
 

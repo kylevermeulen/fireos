@@ -3,6 +3,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { formatCompactCurrency, formatPercent, getCountryFlag, getCountryName } from '@/lib/format';
 import { useAccounts, useBalances, useLiabilities, useLiabilityBalances, useValuations } from '@/hooks/useWealthData';
+import { useHoldingsValues } from '@/hooks/useHoldingsValues';
 import { TimeRange, filterByTimeRange } from '@/contexts/TimeRangeContext';
 import { MonthlyChangeChart } from '@/components/dashboard/MonthlyChangeChart';
 import { ChevronDown, ChevronRight } from 'lucide-react';
@@ -89,6 +90,7 @@ export function AccountsMovement({ timeRange }: AccountsMovementProps) {
   const { data: liabilities } = useLiabilities();
   const { data: liabilityBalances } = useLiabilityBalances();
   const { data: valuations } = useValuations();
+  const { holdingsValueByAccount } = useHoldingsValues();
 
   const { movementRows, monthlyDeltas, dateRange } = useMemo(() => {
     if (!accounts || !balances || !liabilities || !liabilityBalances || !valuations) {
@@ -142,7 +144,10 @@ export function AccountsMovement({ timeRange }: AccountsMovementProps) {
     // Accounts
     for (const account of accounts) {
       const startValue = getBalanceAtDate(account.id, startDate);
-      const endValue = getBalanceAtDate(account.id, endDate);
+      // For end value: use holdings-based value if available, otherwise balance snapshot
+      const holdingsVal = holdingsValueByAccount.get(account.id);
+      const hasHoldings = holdingsVal !== undefined && holdingsVal > 0;
+      const endValue = hasHoldings ? holdingsVal : getBalanceAtDate(account.id, endDate);
       const delta = endValue - startValue;
       const percentChange = startValue !== 0 ? delta / startValue : null;
       const assetClass = getAssetClassFromAccountType(account.account_type);
@@ -264,7 +269,7 @@ export function AccountsMovement({ timeRange }: AccountsMovementProps) {
       monthlyDeltas,
       dateRange: { start: startDate, end: endDate },
     };
-  }, [accounts, balances, liabilities, liabilityBalances, valuations, timeRange]);
+  }, [accounts, balances, liabilities, liabilityBalances, valuations, timeRange, holdingsValueByAccount]);
 
   // Group rows by groupKey and sort within groups
   const groupedRows = useMemo(() => {

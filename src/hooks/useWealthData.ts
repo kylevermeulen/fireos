@@ -2,6 +2,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { useQuery } from '@tanstack/react-query';
 import { useMemo } from 'react';
 import { useAuth } from './useAuth';
+import { useHoldingsValues } from './useHoldingsValues';
 
 interface Account {
   id: string;
@@ -177,11 +178,12 @@ export function useWealthSnapshots() {
   const { data: liabilities, isLoading: liabilitiesLoading } = useLiabilities();
   const { data: liabilityBalances, isLoading: liabilityBalancesLoading } = useLiabilityBalances();
   const { data: valuations, isLoading: valuationsLoading } = useValuations();
+  const { holdingsValueByAccount, isLoading: holdingsLoading } = useHoldingsValues();
 
-  const isLoading = accountsLoading || balancesLoading || liabilitiesLoading || liabilityBalancesLoading || valuationsLoading;
+  const isLoading = accountsLoading || balancesLoading || liabilitiesLoading || liabilityBalancesLoading || valuationsLoading || holdingsLoading;
 
   const snapshots = useMemo(() => {
-    if (!accounts || !balances || !liabilities || !liabilityBalances || !valuations) {
+    if (!accounts || !balances || !liabilities || !liabilityBalances || !valuations || !holdingsValueByAccount) {
       return [];
     }
 
@@ -416,14 +418,103 @@ export function useWealthSnapshots() {
     }
 
     return result;
-  }, [accounts, balances, liabilities, liabilityBalances, valuations]);
+  }, [accounts, balances, liabilities, liabilityBalances, valuations, holdingsValueByAccount]);
+
+  // Override the latest snapshot with holdings-based values for accounts that have tracked holdings
+  const adjustedSnapshots = useMemo(() => {
+    if (snapshots.length === 0 || !accounts || holdingsValueByAccount.size === 0) return snapshots;
+
+    const last = { ...snapshots[snapshots.length - 1] };
+
+    // Recalculate asset totals using holdings values where available
+    let cashAud = 0;
+    let investmentsAud = 0;
+    let retirementAud = 0;
+    let cryptoAud = 0;
+    let liquidWealth = 0;
+    let illiquidWealth = 0;
+    let offsetBalance = 0;
+
+    for (const account of accounts) {
+      // Use holdings value if available, otherwise use snapshot's carry-forward value
+      const holdingsVal = holdingsValueByAccount.get(account.id);
+      let amount: number;
+      
+      if (holdingsVal !== undefined && holdingsVal > 0) {
+        amount = holdingsVal;
+      } else {
+        // Fall back to what the snapshot already computed (from balances)
+        // We need to re-derive per-account from balances for the last month
+        // Instead, just keep the snapshot values for non-holdings accounts
+        amount = getLastBalanceForAccount(account.id, snapshots[snapshots.length - 1].date);
+      }
+
+      switch (account.account_type) {
+        case 'cash':
+          cashAud += amount;
+          break;
+        case 'offset':
+          cashAud += amount;
+          offsetBalance = amount;
+          break;
+        case 'investment':
+          investmentsAud += amount;
+          break;
+        case 'retirement':
+          retirementAud += amount;
+          break;
+        case 'crypto':
+          cryptoAud += amount;
+          break;
+      }
+
+      if (account.liquidity_class === 'liquid') {
+        liquidWealth += amount;
+      } else {
+        illiquidWealth += amount;
+      }
+    }
+
+    // Add valuations to illiquid
+    illiquidWealth += last.homeValue + last.businessValue;
+
+    const totalAssets = cashAud + investmentsAud + retirementAud + cryptoAud + last.homeValue + last.businessValue;
+    const netWorth = totalAssets - last.totalLiabilities;
+    const mortgageNetOfOffset = last.mortgageBalance - offsetBalance;
+
+    const adjusted: MonthlySnapshot = {
+      ...last,
+      cashAud,
+      investmentsAud,
+      retirementAud,
+      cryptoAud,
+      totalAssets,
+      netWorth,
+      liquidWealth,
+      illiquidWealth,
+      liquidityPercent: netWorth > 0 ? liquidWealth / netWorth : 0,
+      offsetBalance,
+      mortgageNetOfOffset,
+    };
+
+    return [...snapshots.slice(0, -1), adjusted];
+
+    // Helper: get last known balance for an account at a given month from raw balances
+    function getLastBalanceForAccount(accountId: string, monthKey: string): number {
+      if (!balances) return 0;
+      const accountBalances = balances
+        .filter(b => b.account_id === accountId && b.balance_date <= monthKey)
+        .sort((a, b) => b.balance_date.localeCompare(a.balance_date));
+      return accountBalances.length > 0 ? accountBalances[0].amount_aud : 0;
+    }
+  }, [snapshots, accounts, balances, holdingsValueByAccount]);
 
   // Get the latest snapshot for current values
-  const latestSnapshot = snapshots.length > 0 ? snapshots[snapshots.length - 1] : null;
-  const previousSnapshot = snapshots.length > 1 ? snapshots[snapshots.length - 2] : null;
+  const latestSnapshot = adjustedSnapshots.length > 0 ? adjustedSnapshots[adjustedSnapshots.length - 1] : null;
+  const previousSnapshot = adjustedSnapshots.length > 1 ? adjustedSnapshots[adjustedSnapshots.length - 2] : null;
 
   return {
-    snapshots,
+    snapshots: adjustedSnapshots,
     latestSnapshot,
     previousSnapshot,
     isLoading,
