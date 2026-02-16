@@ -4,13 +4,34 @@ import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
 import { formatCurrency, getCountryFlag } from '@/lib/format';
 import { useLatestBalances, useLatestLiabilityBalances } from '@/hooks/useWealthData';
+import { useHoldingsValues } from '@/hooks/useHoldingsValues';
 import { Wallet } from 'lucide-react';
+import { useMemo } from 'react';
 
 export default function Wealth() {
   const accountsWithBalances = useLatestBalances();
   const liabilitiesWithBalances = useLatestLiabilityBalances();
+  const { holdingsValueByAccount } = useHoldingsValues();
 
-  const isLoading = accountsWithBalances.length === 0;
+  // Override balances with holdings-calculated values where available
+  const adjustedAccounts = useMemo(() => {
+    return accountsWithBalances.map(acc => {
+      const holdingsVal = holdingsValueByAccount.get(acc.id);
+      if (holdingsVal !== undefined && holdingsVal > 0 && acc.latestBalance) {
+        return {
+          ...acc,
+          latestBalance: {
+            ...acc.latestBalance,
+            amount_aud: holdingsVal,
+            amount_native: acc.currency === 'AUD' ? holdingsVal : acc.latestBalance.amount_native,
+          },
+        };
+      }
+      return acc;
+    });
+  }, [accountsWithBalances, holdingsValueByAccount]);
+
+  const isLoading = adjustedAccounts.length === 0;
 
   if (isLoading) {
     return (
@@ -39,17 +60,17 @@ export default function Wealth() {
   }
 
   // Group accounts by country
-  const groupedAccounts = accountsWithBalances.reduce((acc, account) => {
+  const groupedAccounts = adjustedAccounts.reduce((acc, account) => {
     const country = account.country;
     if (!acc[country]) acc[country] = [];
     acc[country].push(account);
     return acc;
-  }, {} as Record<string, typeof accountsWithBalances>);
+  }, {} as Record<string, typeof adjustedAccounts>);
 
   const countryOrder = ['AU', 'US', 'ID'];
 
   // If no accounts, show empty state
-  if (accountsWithBalances.length === 0) {
+  if (adjustedAccounts.length === 0) {
     return (
       <AppLayout>
         <div className="space-y-6">
