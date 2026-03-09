@@ -452,10 +452,14 @@ export default function Transactions() {
                   </>
                 )}
               </div>
-              <div className="flex items-center gap-2">
+              <div className="flex items-center gap-3">
                 <Button variant="outline" size="sm" onClick={() => setUseSeparateDebitCredit(!useSeparateDebitCredit)}>
                   {useSeparateDebitCredit ? 'Use Single Amount' : 'Use Debit/Credit'}
                 </Button>
+                <label className="flex items-center gap-2 text-sm cursor-pointer">
+                  <input type="checkbox" checked={invertSign} onChange={e => setInvertSign(e.target.checked)} />
+                  Invert sign <span className="text-muted-foreground text-xs">(credit cards: charges are positive)</span>
+                </label>
               </div>
               <div className="flex justify-between">
                 <Button variant="ghost" onClick={resetImport}>Cancel</Button>
