@@ -484,27 +484,41 @@ export default function Transactions() {
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {previewRows.slice(0, 100).map((row, i) => (
-                      <TableRow key={i} className={row.isDuplicate ? 'opacity-40' : ''}>
-                        <TableCell>
-                          {row.isDuplicate ? (
-                            <Badge variant="outline" className="text-muted-foreground text-xs">Dupe</Badge>
-                          ) : row.matchedRule?.needs_review ? (
-                            <Badge variant="outline" className="border-orange-500/30 text-orange-600 text-xs">Review</Badge>
-                          ) : (
-                            <Badge variant="outline" className="border-green-500/30 text-green-600 text-xs">New</Badge>
-                          )}
-                        </TableCell>
-                        <TableCell className="text-xs">{row.date}</TableCell>
-                        <TableCell className="text-xs max-w-[250px] truncate">{row.description}</TableCell>
-                        <TableCell className={cn('text-right text-xs', row.amount >= 0 ? 'text-green-600' : 'text-destructive')}>
-                          {formatCompactCurrency(Math.abs(row.amount))}
-                        </TableCell>
-                        <TableCell className="text-xs">
-                          {row.matchedRule ? <span className="text-primary">{row.matchedRule.l1_category}</span> : <span className="text-muted-foreground">—</span>}
-                        </TableCell>
-                      </TableRow>
-                    ))}
+                    {previewRows.slice(0, 100).map((row, i) => {
+                      const catSource = row.matchedRule ? 'rule' : row.mappedL1 ? 'bank' : null;
+                      const displayL1 = row.matchedRule?.l1_category ?? row.mappedL1 ?? null;
+                      const displayL2 = row.matchedRule?.l2_category ?? row.mappedL2 ?? null;
+                      return (
+                        <TableRow key={i} className={row.isDuplicate ? 'opacity-40' : ''}>
+                          <TableCell>
+                            {row.isDuplicate ? (
+                              <Badge variant="outline" className="text-muted-foreground text-xs">Dupe</Badge>
+                            ) : row.isTransfer ? (
+                              <Badge variant="outline" className="border-blue-500/30 text-blue-600 text-xs">Transfer</Badge>
+                            ) : row.matchedRule?.needs_review ? (
+                              <Badge variant="outline" className="border-orange-500/30 text-orange-600 text-xs">Review</Badge>
+                            ) : (
+                              <Badge variant="outline" className="border-green-500/30 text-green-600 text-xs">New</Badge>
+                            )}
+                          </TableCell>
+                          <TableCell className="text-xs">{row.date}</TableCell>
+                          <TableCell className="text-xs max-w-[250px] truncate">{row.description}</TableCell>
+                          <TableCell className={cn('text-right text-xs', row.amount >= 0 ? 'text-green-600' : 'text-destructive')}>
+                            {formatCompactCurrency(Math.abs(row.amount))}
+                          </TableCell>
+                          <TableCell className="text-xs">
+                            {displayL1 ? (
+                              <span className={catSource === 'rule' ? 'text-primary' : 'text-muted-foreground'}>
+                                {displayL1}{displayL2 ? ` › ${displayL2}` : ''}
+                                {catSource === 'bank' && <span className="text-[10px] ml-1 opacity-60">(bank)</span>}
+                              </span>
+                            ) : (
+                              <span className="text-muted-foreground">—</span>
+                            )}
+                          </TableCell>
+                        </TableRow>
+                      );
+                    })}
                   </TableBody>
                 </Table>
               </div>
