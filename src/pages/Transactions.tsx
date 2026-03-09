@@ -290,8 +290,14 @@ export default function Transactions() {
     setImportStep('idle');
   };
 
-  const newTxCount = previewRows.filter(r => !r.isDuplicate).length;
-  const dupeCount = previewRows.filter(r => r.isDuplicate).length;
+  const includedCount = previewRows.filter(r => !r.excluded).length;
+  const excludedCount = previewRows.filter(r => r.excluded).length;
+  const sameAcctDupes = previewRows.filter(r => r.dupeType === 'same-account').length;
+  const crossAcctDupes = previewRows.filter(r => r.dupeType === 'cross-account').length;
+
+  const toggleRowExcluded = (index: number) => {
+    setPreviewRows(prev => prev.map((r, i) => i === index ? { ...r, excluded: !r.excluded } : r));
+  };
 
   // ── Sortable header ──
   const SortableHeader = ({ field, children, className }: { field: SortField; children: React.ReactNode; className?: string }) => {
@@ -466,16 +472,33 @@ export default function Transactions() {
                 <CardTitle className="text-base">Preview — {currentFileName}</CardTitle>
                 <div className="flex flex-wrap gap-2">
                   <Badge variant="secondary">{previewRows.length} total</Badge>
-                  <Badge className="bg-green-500/10 text-green-700 border-green-500/20">{newTxCount} new</Badge>
-                  <Badge className="bg-yellow-500/10 text-yellow-700 border-yellow-500/20">{dupeCount} dupes</Badge>
+                  <Badge className="bg-green-500/10 text-green-700 border-green-500/20">{includedCount} to import</Badge>
+                  {sameAcctDupes > 0 && (
+                    <Badge className="bg-yellow-500/10 text-yellow-700 border-yellow-500/20">{sameAcctDupes} same-acct dupes</Badge>
+                  )}
+                  {crossAcctDupes > 0 && (
+                    <Badge className="bg-blue-500/10 text-blue-700 border-blue-500/20">{crossAcctDupes} cross-acct matches</Badge>
+                  )}
+                  {excludedCount > 0 && (
+                    <Badge variant="outline" className="text-muted-foreground">{excludedCount} excluded</Badge>
+                  )}
                 </div>
               </div>
             </CardHeader>
             <CardContent className="space-y-4">
-              <div className="max-h-[350px] overflow-auto border rounded-lg">
+              {crossAcctDupes > 0 && (
+                <Alert>
+                  <AlertTriangle className="h-4 w-4" />
+                  <AlertDescription className="text-xs">
+                    {crossAcctDupes} transaction(s) match existing records in other accounts (likely the other side of transfers). These are <strong>included</strong> by default — click to exclude if they're true duplicates.
+                  </AlertDescription>
+                </Alert>
+              )}
+              <div className="max-h-[400px] overflow-auto border rounded-lg">
                 <Table>
                   <TableHeader>
                     <TableRow>
+                      <TableHead className="w-8"></TableHead>
                       <TableHead className="w-16">Status</TableHead>
                       <TableHead>Date</TableHead>
                       <TableHead>Description</TableHead>
@@ -484,15 +507,33 @@ export default function Transactions() {
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {previewRows.slice(0, 100).map((row, i) => {
+                    {previewRows.slice(0, 150).map((row, i) => {
                       const catSource = row.matchedRule ? 'rule' : row.mappedL1 ? 'bank' : null;
                       const displayL1 = row.matchedRule?.l1_category ?? row.mappedL1 ?? null;
                       const displayL2 = row.matchedRule?.l2_category ?? row.mappedL2 ?? null;
                       return (
-                        <TableRow key={i} className={row.isDuplicate ? 'opacity-40' : ''}>
+                        <TableRow
+                          key={i}
+                          className={cn(
+                            row.excluded && 'opacity-40',
+                            row.dupeType === 'cross-account' && !row.excluded && 'bg-blue-500/5',
+                          )}
+                        >
                           <TableCell>
-                            {row.isDuplicate ? (
-                              <Badge variant="outline" className="text-muted-foreground text-xs">Dupe</Badge>
+                            <input
+                              type="checkbox"
+                              checked={!row.excluded}
+                              onChange={() => toggleRowExcluded(i)}
+                              className="cursor-pointer"
+                            />
+                          </TableCell>
+                          <TableCell>
+                            {row.dupeType === 'same-account' ? (
+                              <Badge variant="outline" className="text-yellow-600 border-yellow-500/30 text-xs">Dupe</Badge>
+                            ) : row.dupeType === 'cross-account' ? (
+                              <Badge variant="outline" className="text-blue-600 border-blue-500/30 text-xs" title={`Also in: ${row.dupeAccountName}`}>
+                                X-Acct
+                              </Badge>
                             ) : row.isTransfer ? (
                               <Badge variant="outline" className="border-blue-500/30 text-blue-600 text-xs">Transfer</Badge>
                             ) : row.matchedRule?.needs_review ? (
@@ -502,7 +543,12 @@ export default function Transactions() {
                             )}
                           </TableCell>
                           <TableCell className="text-xs">{row.date}</TableCell>
-                          <TableCell className="text-xs max-w-[250px] truncate">{row.description}</TableCell>
+                          <TableCell className="text-xs max-w-[250px] truncate">
+                            {row.description}
+                            {row.dupeType === 'cross-account' && row.dupeAccountName && (
+                              <span className="text-[10px] text-blue-500 ml-1">({row.dupeAccountName})</span>
+                            )}
+                          </TableCell>
                           <TableCell className={cn('text-right text-xs', row.amount >= 0 ? 'text-green-600' : 'text-destructive')}>
                             {formatCompactCurrency(Math.abs(row.amount))}
                           </TableCell>
@@ -522,11 +568,11 @@ export default function Transactions() {
                   </TableBody>
                 </Table>
               </div>
-              {previewRows.length > 100 && <p className="text-xs text-muted-foreground">Showing first 100 of {previewRows.length}</p>}
+              {previewRows.length > 150 && <p className="text-xs text-muted-foreground">Showing first 150 of {previewRows.length}</p>}
               <div className="flex justify-between">
                 <Button variant="ghost" onClick={() => setImportStep('map')}>Back</Button>
-                <Button onClick={handleImport} disabled={isImporting || newTxCount === 0}>
-                  {isImporting ? 'Importing...' : `Import ${newTxCount} Transactions`}
+                <Button onClick={handleImport} disabled={isImporting || includedCount === 0}>
+                  {isImporting ? 'Importing...' : `Import ${includedCount} Transactions`}
                 </Button>
               </div>
             </CardContent>

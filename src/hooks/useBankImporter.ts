@@ -33,11 +33,14 @@ export interface ImportPreviewRow {
   amount: number;
   counterparty: string;
   matchedRule: CategoryRule | null;
-  bankCategory: string;       // Raw category from bank CSV
-  mappedL1: string | null;    // L1 from bank category mapping
-  mappedL2: string | null;    // L2 from bank category mapping
-  isTransfer: boolean;        // Detected as internal transfer from bank tx type
+  bankCategory: string;
+  mappedL1: string | null;
+  mappedL2: string | null;
+  isTransfer: boolean;
   isDuplicate: boolean;
+  dupeType: 'none' | 'same-account' | 'cross-account';  // Why it was flagged
+  dupeAccountName: string | null;  // Which account has the matching tx
+  excluded: boolean;               // User can toggle this
   rawLine: string;
 }
 
@@ -272,7 +275,7 @@ export function useBankImporter() {
 
       rows.push({
         date: parsedDate,
-        description: counterparty || description, // Prefer payee name (cleaner)
+        description: counterparty || description,
         amount,
         counterparty,
         matchedRule,
@@ -281,6 +284,9 @@ export function useBankImporter() {
         mappedL2: bankMapping?.l2 ?? null,
         isTransfer,
         isDuplicate: false,
+        dupeType: 'none',
+        dupeAccountName: null,
+        excluded: false,
         rawLine: lines[i],
       });
     }
@@ -298,32 +304,70 @@ export function useBankImporter() {
     const minDate = dates[0];
     const maxDate = dates[dates.length - 1];
 
-    const { data: existing } = await supabase
+    // Check same-account duplicates (likely real dupes from re-importing)
+    const { data: sameAcct } = await supabase
       .from('transactions')
-      .select('transaction_date, amount_native')
+      .select('transaction_date, amount_native, description')
       .eq('account_id', accountId)
       .gte('transaction_date', minDate)
       .lte('transaction_date', maxDate);
 
-    if (!existing || existing.length === 0) return rows;
+    // Check cross-account matches (likely other side of transfers)
+    const { data: crossAcct } = await supabase
+      .from('transactions')
+      .select('transaction_date, amount_native, source_account_name')
+      .neq('account_id', accountId)
+      .gte('transaction_date', minDate)
+      .lte('transaction_date', maxDate);
 
-    const existingCounts = new Map<string, number>();
-    for (const t of existing) {
-      const key = `${t.transaction_date}|${Number(t.amount_native).toFixed(2)}`;
-      existingCounts.set(key, (existingCounts.get(key) ?? 0) + 1);
+    // Build same-account dedup keys (date + amount + description prefix)
+    const sameKeys = new Map<string, number>();
+    for (const t of (sameAcct ?? [])) {
+      const descPrefix = (t.description ?? '').substring(0, 20).toLowerCase();
+      const key = `${t.transaction_date}|${Number(t.amount_native).toFixed(2)}|${descPrefix}`;
+      sameKeys.set(key, (sameKeys.get(key) ?? 0) + 1);
     }
 
-    const usedCounts = new Map<string, number>();
+    // Build cross-account keys (date + matching opposite amount)
+    const crossKeys = new Map<string, string>(); // key → account name
+    for (const t of (crossAcct ?? [])) {
+      // Match on same date, opposite sign amount (transfer in one = transfer out in other)
+      const key = `${t.transaction_date}|${Number(t.amount_native).toFixed(2)}`;
+      crossKeys.set(key, t.source_account_name ?? 'Other account');
+    }
+
+    const usedSame = new Map<string, number>();
 
     return rows.map(row => {
-      const key = `${row.date}|${row.amount.toFixed(2)}`;
-      const existCount = existingCounts.get(key) ?? 0;
-      const used = usedCounts.get(key) ?? 0;
+      const descPrefix = row.description.substring(0, 20).toLowerCase();
+      const sameKey = `${row.date}|${row.amount.toFixed(2)}|${descPrefix}`;
+      const crossKey = `${row.date}|${row.amount.toFixed(2)}`;
 
-      if (used < existCount) {
-        usedCounts.set(key, used + 1);
-        return { ...row, isDuplicate: true };
+      const sameCount = sameKeys.get(sameKey) ?? 0;
+      const used = usedSame.get(sameKey) ?? 0;
+
+      if (used < sameCount) {
+        usedSame.set(sameKey, used + 1);
+        return {
+          ...row,
+          isDuplicate: true,
+          dupeType: 'same-account' as const,
+          dupeAccountName: null,
+          excluded: true, // Default exclude same-account dupes
+        };
       }
+
+      // Check cross-account match (flag but DON'T exclude — these are likely valid)
+      if (crossKeys.has(crossKey)) {
+        return {
+          ...row,
+          isDuplicate: true,
+          dupeType: 'cross-account' as const,
+          dupeAccountName: crossKeys.get(crossKey) ?? null,
+          excluded: false, // Keep by default — it's the other side of a transfer
+        };
+      }
+
       return row;
     });
   }, []);
@@ -339,15 +383,15 @@ export function useBankImporter() {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error('Must be logged in');
 
-      const nonDuplicates = rows.filter(r => !r.isDuplicate);
-      result.duplicates = rows.length - nonDuplicates.length;
+      const toImport = rows.filter(r => !r.excluded);
+      result.duplicates = rows.filter(r => r.excluded).length;
 
-      if (nonDuplicates.length === 0) {
-        toast({ title: 'No new transactions', description: `${result.duplicates} duplicates skipped` });
+      if (toImport.length === 0) {
+        toast({ title: 'No transactions to import', description: `${result.duplicates} excluded` });
         return result;
       }
 
-      const dates = nonDuplicates.map(r => r.date).sort();
+      const dates = toImport.map(r => r.date).sort();
 
       const { data: importLog, error: logError } = await supabase
         .from('bank_import_logs')
@@ -357,7 +401,7 @@ export function useBankImporter() {
           file_name: config.fileName,
           rows_total: rows.length,
           rows_duplicates: result.duplicates,
-          rows_imported: nonDuplicates.length,
+          rows_imported: toImport.length,
           date_from: dates[0],
           date_to: dates[dates.length - 1],
         })
@@ -365,7 +409,7 @@ export function useBankImporter() {
         .single();
       if (logError) throw logError;
 
-      const txRecords = nonDuplicates.map(row => {
+      const txRecords = toImport.map(row => {
         const isIncome = row.amount > 0;
         const rule = row.matchedRule;
 
