@@ -4,10 +4,43 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { X, ArrowUp, ArrowDown, ArrowUpDown } from 'lucide-react';
+import { X, ArrowUp, ArrowDown, ArrowUpDown, Download } from 'lucide-react';
 import { formatCompactCurrency } from '@/lib/format';
 import { CashflowTransaction } from '@/types/cashflow';
 import { cn } from '@/lib/utils';
+
+function escapeCsvField(value: string): string {
+  if (value.includes(',') || value.includes('"') || value.includes('\n')) {
+    return `"${value.replace(/"/g, '""')}"`;
+  }
+  return value;
+}
+
+function exportTransactionsCsv(transactions: CashflowTransaction[], filename: string) {
+  const headers = ['Date', 'Source Account', 'Counterparty', 'Description', 'Amount (Native)', 'Currency', 'Amount (AUD)', 'Direction', 'Internal Transfer', 'L1', 'L2'];
+  const rows = transactions.map(tx => [
+    format(tx.date, 'yyyy-MM-dd'),
+    escapeCsvField(tx.source_account),
+    escapeCsvField(tx.counterparty),
+    escapeCsvField(tx.description),
+    tx.amount_native.toString(),
+    tx.currency,
+    tx.amount_aud.toString(),
+    tx.direction,
+    tx.is_internal_transfer ? 'true' : 'false',
+    escapeCsvField(tx.L1),
+    escapeCsvField(tx.L2),
+  ].join(','));
+
+  const csv = [headers.join(','), ...rows].join('\n');
+  const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = filename;
+  a.click();
+  URL.revokeObjectURL(url);
+}
 
 interface TransactionsTableProps {
   transactions: CashflowTransaction[];
@@ -126,6 +159,15 @@ export function TransactionsTable({
               Clear
             </Button>
           )}
+          <Button
+            variant="outline"
+            size="sm"
+            className="h-7 px-2"
+            onClick={() => exportTransactionsCsv(sortedTransactions, `cashflow_export_${format(new Date(), 'yyyy-MM-dd')}.csv`)}
+          >
+            <Download className="h-3 w-3 mr-1" />
+            Export CSV
+          </Button>
         </div>
       </CardHeader>
       <CardContent className="pt-0">
