@@ -1,0 +1,632 @@
+import { useState, useEffect, useMemo, useCallback } from 'react';
+import { format } from 'date-fns';
+import { AppLayout } from '@/components/layout/AppLayout';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Badge } from '@/components/ui/badge';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { ScrollArea } from '@/components/ui/scroll-area';
+import {
+  Upload, Search, ArrowUp, ArrowDown, ArrowUpDown, Download, Check, FileSpreadsheet, Tag, X, AlertTriangle,
+} from 'lucide-react';
+import { supabase } from '@/integrations/supabase/client';
+import { useBankImporter, BankImportConfig, ImportPreviewRow, ColumnMapping } from '@/hooks/useBankImporter';
+import { useCategoryRules } from '@/hooks/useCategoryRules';
+import { formatCompactCurrency } from '@/lib/format';
+import { cn } from '@/lib/utils';
+
+interface Account {
+  id: string;
+  name: string;
+  currency: string;
+}
+
+interface DbTransaction {
+  id: string;
+  transaction_date: string;
+  description: string | null;
+  merchant: string | null;
+  counterparty: string | null;
+  amount_native: number;
+  amount_aud: number;
+  currency: string;
+  l1_category: string | null;
+  l2_category: string | null;
+  is_internal_transfer: boolean;
+  needs_review: boolean;
+  source_account_name: string | null;
+  transaction_type: string;
+}
+
+type SortField = 'date' | 'account' | 'description' | 'amount' | 'l1' | 'l2';
+type SortDir = 'asc' | 'desc';
+
+const PAGE_SIZE = 250;
+
+function escapeCsvField(value: string): string {
+  if (value.includes(',') || value.includes('"') || value.includes('\n')) {
+    return `"${value.replace(/"/g, '""')}"`;
+  }
+  return value;
+}
+
+export default function Transactions() {
+  // ── Data state ──
+  const [transactions, setTransactions] = useState<DbTransaction[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [accounts, setAccounts] = useState<Account[]>([]);
+
+  // ── Filter / sort state ──
+  const [searchQuery, setSearchQuery] = useState('');
+  const [accountFilter, setAccountFilter] = useState<string>('all');
+  const [l1Filter, setL1Filter] = useState<string>('all');
+  const [typeFilter, setTypeFilter] = useState<string>('all');
+  const [sortState, setSortState] = useState<{ field: SortField; dir: SortDir }>({ field: 'date', dir: 'desc' });
+  const [visibleCount, setVisibleCount] = useState(PAGE_SIZE);
+
+  // ── Import state ──
+  const { parseFile, checkDuplicates, importRows, isImporting } = useBankImporter();
+  const { rules, applyRules, seedRules, isSeeding, isLoading: rulesLoading } = useCategoryRules();
+  const [selectedAccountId, setSelectedAccountId] = useState<string>('');
+  const [dateFormat, setDateFormat] = useState<BankImportConfig['dateFormat']>('dd/mm/yyyy');
+  const [pendingFiles, setPendingFiles] = useState<File[]>([]);
+  const [csvContent, setCsvContent] = useState<string | null>(null);
+  const [currentFileName, setCurrentFileName] = useState<string | null>(null);
+  const [headers, setHeaders] = useState<string[]>([]);
+  const [previewRows, setPreviewRows] = useState<ImportPreviewRow[]>([]);
+  const [columnMapping, setColumnMapping] = useState<ColumnMapping>({ date: 0, description: 1, amount: 2 });
+  const [useSeparateDebitCredit, setUseSeparateDebitCredit] = useState(false);
+  const [importStep, setImportStep] = useState<'idle' | 'map' | 'preview' | 'done'>('idle');
+  const [dragActive, setDragActive] = useState(false);
+
+  const selectedAccount = accounts.find(a => a.id === selectedAccountId);
+
+  // ── Load data ──
+  const loadTransactions = useCallback(async () => {
+    setIsLoading(true);
+    const { data, error } = await supabase
+      .from('transactions')
+      .select('id, transaction_date, description, merchant, counterparty, amount_native, amount_aud, currency, l1_category, l2_category, is_internal_transfer, needs_review, source_account_name, transaction_type')
+      .order('transaction_date', { ascending: false })
+      .limit(5000);
+    if (!error && data) setTransactions(data as DbTransaction[]);
+    setIsLoading(false);
+  }, []);
+
+  useEffect(() => {
+    loadTransactions();
+    supabase.from('accounts').select('id, name, currency').order('name').then(({ data }) => setAccounts(data ?? []));
+  }, [loadTransactions]);
+
+  // ── Derived data ──
+  const allL1Categories = useMemo(() => {
+    const set = new Set<string>();
+    transactions.forEach(t => { if (t.l1_category) set.add(t.l1_category); });
+    return Array.from(set).sort();
+  }, [transactions]);
+
+  const filtered = useMemo(() => {
+    return transactions.filter(t => {
+      if (accountFilter !== 'all' && t.source_account_name !== accountFilter) return false;
+      if (l1Filter !== 'all' && t.l1_category !== l1Filter) return false;
+      if (typeFilter !== 'all' && t.transaction_type !== typeFilter) return false;
+      if (searchQuery) {
+        const q = searchQuery.toLowerCase();
+        const matches = (t.description ?? '').toLowerCase().includes(q)
+          || (t.counterparty ?? '').toLowerCase().includes(q)
+          || (t.merchant ?? '').toLowerCase().includes(q)
+          || (t.l1_category ?? '').toLowerCase().includes(q)
+          || (t.l2_category ?? '').toLowerCase().includes(q);
+        if (!matches) return false;
+      }
+      return true;
+    });
+  }, [transactions, accountFilter, l1Filter, typeFilter, searchQuery]);
+
+  const sorted = useMemo(() => {
+    const mult = sortState.dir === 'asc' ? 1 : -1;
+    return [...filtered].sort((a, b) => {
+      switch (sortState.field) {
+        case 'date': return mult * a.transaction_date.localeCompare(b.transaction_date);
+        case 'account': return mult * (a.source_account_name ?? '').localeCompare(b.source_account_name ?? '');
+        case 'description': return mult * (a.description ?? '').localeCompare(b.description ?? '');
+        case 'amount': return mult * (a.amount_aud - b.amount_aud);
+        case 'l1': return mult * (a.l1_category ?? '').localeCompare(b.l1_category ?? '');
+        case 'l2': return mult * (a.l2_category ?? '').localeCompare(b.l2_category ?? '');
+        default: return 0;
+      }
+    });
+  }, [filtered, sortState]);
+
+  const visible = sorted.slice(0, visibleCount);
+  const hasMore = visibleCount < sorted.length;
+
+  const handleSort = (field: SortField) => {
+    setSortState(prev => ({
+      field,
+      dir: prev.field === field && prev.dir === 'desc' ? 'asc' : 'desc',
+    }));
+  };
+
+  // ── Export ──
+  const handleExport = () => {
+    const hdrs = ['Date', 'Account', 'Counterparty', 'Description', 'Amount (Native)', 'Currency', 'Amount (AUD)', 'Type', 'Internal Transfer', 'L1', 'L2', 'Needs Review'];
+    const rows = sorted.map(t => [
+      t.transaction_date,
+      escapeCsvField(t.source_account_name ?? ''),
+      escapeCsvField(t.counterparty ?? ''),
+      escapeCsvField(t.description ?? ''),
+      t.amount_native.toString(),
+      t.currency,
+      t.amount_aud.toString(),
+      t.transaction_type,
+      t.is_internal_transfer ? 'true' : 'false',
+      escapeCsvField(t.l1_category ?? ''),
+      escapeCsvField(t.l2_category ?? ''),
+      t.needs_review ? 'true' : 'false',
+    ].join(','));
+    const csv = [hdrs.join(','), ...rows].join('\n');
+    const blob = new Blob([csv], { type: 'text/csv' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `transactions_export_${format(new Date(), 'yyyy-MM-dd')}.csv`;
+    a.click();
+    URL.revokeObjectURL(url);
+  };
+
+  // ── Drag & drop / file handling ──
+  const handleDrag = useCallback((e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    if (e.type === 'dragenter' || e.type === 'dragover') setDragActive(true);
+    else if (e.type === 'dragleave') setDragActive(false);
+  }, []);
+
+  const processFiles = useCallback((files: FileList | File[]) => {
+    const csvFiles = Array.from(files).filter(f => f.name.endsWith('.csv') || f.name.endsWith('.xlsx') || f.name.endsWith('.xls'));
+    if (csvFiles.length === 0) return;
+    setPendingFiles(csvFiles);
+    // Load the first file for mapping
+    const first = csvFiles[0];
+    setCurrentFileName(first.name);
+    first.text().then(content => {
+      setCsvContent(content);
+      const firstLine = content.split(/\r?\n/)[0] ?? '';
+      const hdrs = firstLine.split(',').map(h => h.replace(/"/g, '').trim());
+      setHeaders(hdrs);
+      // Auto-detect columns
+      const autoMap: ColumnMapping = { date: 0, description: 1, amount: 2 };
+      let hasDebitCredit = false;
+      hdrs.forEach((h, i) => {
+        const lc = h.toLowerCase();
+        if (lc.includes('date')) autoMap.date = i;
+        if (lc.includes('description') || lc.includes('narrative') || lc.includes('details') || lc.includes('memo')) autoMap.description = i;
+        if (lc === 'amount' || lc === 'value') autoMap.amount = i;
+        if (lc === 'debit') { autoMap.debit = i; hasDebitCredit = true; }
+        if (lc === 'credit') { autoMap.credit = i; hasDebitCredit = true; }
+      });
+      setUseSeparateDebitCredit(hasDebitCredit);
+      setColumnMapping(autoMap);
+      setImportStep('map');
+    });
+  }, []);
+
+  const handleDrop = useCallback((e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setDragActive(false);
+    if (e.dataTransfer.files) processFiles(e.dataTransfer.files);
+  }, [processFiles]);
+
+  const handleFileInput = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files) processFiles(e.target.files);
+  }, [processFiles]);
+
+  // ── Preview ──
+  const handlePreview = useCallback(async () => {
+    if (!csvContent || !selectedAccountId || !selectedAccount) return;
+    const config: BankImportConfig = {
+      accountId: selectedAccountId,
+      accountName: selectedAccount.name,
+      currency: selectedAccount.currency,
+      fileName: currentFileName ?? 'unknown.csv',
+      columnMapping,
+      dateFormat,
+      skipRows: 1,
+      invertSign: false,
+    };
+    const parsed = parseFile(csvContent, config, applyRules);
+    const withDupes = await checkDuplicates(parsed, selectedAccountId);
+    setPreviewRows(withDupes);
+    setImportStep('preview');
+  }, [csvContent, selectedAccountId, selectedAccount, columnMapping, dateFormat, currentFileName, parseFile, applyRules, checkDuplicates]);
+
+  // ── Import ──
+  const handleImport = useCallback(async () => {
+    if (!selectedAccount) return;
+
+    const config: BankImportConfig = {
+      accountId: selectedAccountId,
+      accountName: selectedAccount.name,
+      currency: selectedAccount.currency,
+      fileName: currentFileName ?? 'unknown.csv',
+      columnMapping,
+      dateFormat,
+      skipRows: 1,
+      invertSign: false,
+    };
+
+    await importRows(previewRows, config);
+
+    // Process remaining files with same mapping
+    for (let i = 1; i < pendingFiles.length; i++) {
+      const file = pendingFiles[i];
+      const content = await file.text();
+      const parsed = parseFile(content, { ...config, fileName: file.name }, applyRules);
+      const withDupes = await checkDuplicates(parsed, selectedAccountId);
+      await importRows(withDupes, { ...config, fileName: file.name });
+    }
+
+    setImportStep('done');
+    await loadTransactions();
+  }, [selectedAccountId, selectedAccount, currentFileName, columnMapping, dateFormat, previewRows, importRows, pendingFiles, parseFile, applyRules, checkDuplicates, loadTransactions]);
+
+  const resetImport = () => {
+    setPendingFiles([]);
+    setCsvContent(null);
+    setCurrentFileName(null);
+    setHeaders([]);
+    setPreviewRows([]);
+    setImportStep('idle');
+  };
+
+  const newTxCount = previewRows.filter(r => !r.isDuplicate).length;
+  const dupeCount = previewRows.filter(r => r.isDuplicate).length;
+
+  // ── Sortable header ──
+  const SortableHeader = ({ field, children, className }: { field: SortField; children: React.ReactNode; className?: string }) => {
+    const isActive = sortState.field === field;
+    return (
+      <TableHead
+        className={cn('sticky top-0 bg-background cursor-pointer hover:bg-muted/50 select-none', className)}
+        onClick={() => handleSort(field)}
+      >
+        <div className="flex items-center gap-1">
+          {children}
+          {isActive ? (sortState.dir === 'asc' ? <ArrowUp className="h-3 w-3" /> : <ArrowDown className="h-3 w-3" />) : <ArrowUpDown className="h-3 w-3 text-muted-foreground/50" />}
+        </div>
+      </TableHead>
+    );
+  };
+
+  // ── Unique account names for filter ──
+  const accountNames = useMemo(() => {
+    const set = new Set<string>();
+    transactions.forEach(t => { if (t.source_account_name) set.add(t.source_account_name); });
+    return Array.from(set).sort();
+  }, [transactions]);
+
+  return (
+    <AppLayout>
+      <div className="space-y-6">
+        <div className="flex items-center justify-between">
+          <div>
+            <h1 className="text-2xl font-bold tracking-tight">Transactions</h1>
+            <p className="text-muted-foreground">Import, categorize, and review bank transactions</p>
+          </div>
+          <div className="flex gap-2">
+            <Button variant="outline" size="sm" onClick={seedRules} disabled={isSeeding || rulesLoading}>
+              <Tag className="h-4 w-4 mr-1" />
+              {rules.length > 0 ? `${rules.length} Rules` : 'Seed Rules'}
+            </Button>
+            <Button variant="outline" size="sm" onClick={handleExport} disabled={sorted.length === 0}>
+              <Download className="h-4 w-4 mr-1" />
+              Export
+            </Button>
+          </div>
+        </div>
+
+        {/* ── Import Zone ── */}
+        {importStep === 'idle' && (
+          <Card>
+            <CardContent className="pt-6">
+              <div className="grid grid-cols-1 md:grid-cols-[1fr_1fr_auto] gap-4 mb-4">
+                <Select value={selectedAccountId} onValueChange={setSelectedAccountId}>
+                  <SelectTrigger><SelectValue placeholder="Select bank account" /></SelectTrigger>
+                  <SelectContent>
+                    {accounts.map(a => (
+                      <SelectItem key={a.id} value={a.id}>{a.name} ({a.currency})</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <Select value={dateFormat} onValueChange={v => setDateFormat(v as any)}>
+                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="dd/mm/yyyy">DD/MM/YYYY</SelectItem>
+                    <SelectItem value="yyyy-mm-dd">YYYY-MM-DD</SelectItem>
+                    <SelectItem value="mm/dd/yyyy">MM/DD/YYYY</SelectItem>
+                    <SelectItem value="dd-mm-yyyy">DD-MM-YYYY</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div
+                className={cn(
+                  'border-2 border-dashed rounded-lg p-8 text-center transition-colors',
+                  dragActive ? 'border-primary bg-primary/5' : 'border-muted-foreground/25 hover:border-primary/50',
+                  !selectedAccountId && 'opacity-50 pointer-events-none',
+                )}
+                onDragEnter={handleDrag}
+                onDragLeave={handleDrag}
+                onDragOver={handleDrag}
+                onDrop={handleDrop}
+              >
+                <input
+                  type="file"
+                  accept=".csv,.xlsx,.xls"
+                  multiple
+                  onChange={handleFileInput}
+                  className="hidden"
+                  id="tx-file-upload"
+                  disabled={!selectedAccountId}
+                />
+                <label htmlFor="tx-file-upload" className="cursor-pointer flex flex-col items-center gap-2">
+                  <Upload className="h-10 w-10 text-muted-foreground" />
+                  <p className="text-sm font-medium">Drop CSV files here, or click to select</p>
+                  <p className="text-xs text-muted-foreground">Supports multiple files at once (e.g. monthly Permata exports)</p>
+                </label>
+              </div>
+            </CardContent>
+          </Card>
+        )}
+
+        {/* ── Column Mapping ── */}
+        {importStep === 'map' && headers.length > 0 && (
+          <Card>
+            <CardHeader className="pb-3">
+              <CardTitle className="text-base flex items-center gap-2">
+                <FileSpreadsheet className="h-5 w-5" />
+                Map Columns — {currentFileName}
+                {pendingFiles.length > 1 && (
+                  <Badge variant="secondary">+{pendingFiles.length - 1} more files</Badge>
+                )}
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+                <div className="space-y-1.5">
+                  <label className="text-sm font-medium">Date</label>
+                  <Select value={String(columnMapping.date)} onValueChange={v => setColumnMapping(m => ({ ...m, date: parseInt(v) }))}>
+                    <SelectTrigger><SelectValue /></SelectTrigger>
+                    <SelectContent>{headers.map((h, i) => <SelectItem key={i} value={String(i)}>{h || `Col ${i + 1}`}</SelectItem>)}</SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-1.5">
+                  <label className="text-sm font-medium">Description</label>
+                  <Select value={String(columnMapping.description)} onValueChange={v => setColumnMapping(m => ({ ...m, description: parseInt(v) }))}>
+                    <SelectTrigger><SelectValue /></SelectTrigger>
+                    <SelectContent>{headers.map((h, i) => <SelectItem key={i} value={String(i)}>{h || `Col ${i + 1}`}</SelectItem>)}</SelectContent>
+                  </Select>
+                </div>
+                {!useSeparateDebitCredit ? (
+                  <div className="space-y-1.5">
+                    <label className="text-sm font-medium">Amount</label>
+                    <Select value={String(columnMapping.amount)} onValueChange={v => setColumnMapping(m => ({ ...m, amount: parseInt(v) }))}>
+                      <SelectTrigger><SelectValue /></SelectTrigger>
+                      <SelectContent>{headers.map((h, i) => <SelectItem key={i} value={String(i)}>{h || `Col ${i + 1}`}</SelectItem>)}</SelectContent>
+                    </Select>
+                  </div>
+                ) : (
+                  <>
+                    <div className="space-y-1.5">
+                      <label className="text-sm font-medium">Debit</label>
+                      <Select value={String(columnMapping.debit ?? 0)} onValueChange={v => setColumnMapping(m => ({ ...m, debit: parseInt(v) }))}>
+                        <SelectTrigger><SelectValue /></SelectTrigger>
+                        <SelectContent>{headers.map((h, i) => <SelectItem key={i} value={String(i)}>{h || `Col ${i + 1}`}</SelectItem>)}</SelectContent>
+                      </Select>
+                    </div>
+                    <div className="space-y-1.5">
+                      <label className="text-sm font-medium">Credit</label>
+                      <Select value={String(columnMapping.credit ?? 0)} onValueChange={v => setColumnMapping(m => ({ ...m, credit: parseInt(v) }))}>
+                        <SelectTrigger><SelectValue /></SelectTrigger>
+                        <SelectContent>{headers.map((h, i) => <SelectItem key={i} value={String(i)}>{h || `Col ${i + 1}`}</SelectItem>)}</SelectContent>
+                      </Select>
+                    </div>
+                  </>
+                )}
+              </div>
+              <div className="flex items-center gap-2">
+                <Button variant="outline" size="sm" onClick={() => setUseSeparateDebitCredit(!useSeparateDebitCredit)}>
+                  {useSeparateDebitCredit ? 'Use Single Amount' : 'Use Debit/Credit'}
+                </Button>
+              </div>
+              <div className="flex justify-between">
+                <Button variant="ghost" onClick={resetImport}>Cancel</Button>
+                <Button onClick={handlePreview} disabled={!selectedAccountId}>Preview & Check Duplicates</Button>
+              </div>
+            </CardContent>
+          </Card>
+        )}
+
+        {/* ── Preview ── */}
+        {importStep === 'preview' && (
+          <Card>
+            <CardHeader className="pb-3">
+              <div className="flex items-center justify-between">
+                <CardTitle className="text-base">Preview — {currentFileName}</CardTitle>
+                <div className="flex flex-wrap gap-2">
+                  <Badge variant="secondary">{previewRows.length} total</Badge>
+                  <Badge className="bg-green-500/10 text-green-700 border-green-500/20">{newTxCount} new</Badge>
+                  <Badge className="bg-yellow-500/10 text-yellow-700 border-yellow-500/20">{dupeCount} dupes</Badge>
+                </div>
+              </div>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="max-h-[350px] overflow-auto border rounded-lg">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead className="w-16">Status</TableHead>
+                      <TableHead>Date</TableHead>
+                      <TableHead>Description</TableHead>
+                      <TableHead className="text-right">Amount</TableHead>
+                      <TableHead>Category</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {previewRows.slice(0, 100).map((row, i) => (
+                      <TableRow key={i} className={row.isDuplicate ? 'opacity-40' : ''}>
+                        <TableCell>
+                          {row.isDuplicate ? (
+                            <Badge variant="outline" className="text-muted-foreground text-xs">Dupe</Badge>
+                          ) : row.matchedRule?.needs_review ? (
+                            <Badge variant="outline" className="border-orange-500/30 text-orange-600 text-xs">Review</Badge>
+                          ) : (
+                            <Badge variant="outline" className="border-green-500/30 text-green-600 text-xs">New</Badge>
+                          )}
+                        </TableCell>
+                        <TableCell className="text-xs">{row.date}</TableCell>
+                        <TableCell className="text-xs max-w-[250px] truncate">{row.description}</TableCell>
+                        <TableCell className={cn('text-right text-xs', row.amount >= 0 ? 'text-green-600' : 'text-destructive')}>
+                          {formatCompactCurrency(Math.abs(row.amount))}
+                        </TableCell>
+                        <TableCell className="text-xs">
+                          {row.matchedRule ? <span className="text-primary">{row.matchedRule.l1_category}</span> : <span className="text-muted-foreground">—</span>}
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </div>
+              {previewRows.length > 100 && <p className="text-xs text-muted-foreground">Showing first 100 of {previewRows.length}</p>}
+              <div className="flex justify-between">
+                <Button variant="ghost" onClick={() => setImportStep('map')}>Back</Button>
+                <Button onClick={handleImport} disabled={isImporting || newTxCount === 0}>
+                  {isImporting ? 'Importing...' : `Import ${newTxCount} Transactions`}
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+        )}
+
+        {/* ── Done ── */}
+        {importStep === 'done' && (
+          <Alert>
+            <Check className="h-4 w-4" />
+            <AlertTitle>Import Complete</AlertTitle>
+            <AlertDescription className="flex items-center justify-between">
+              <span>Transactions from {pendingFiles.length} file(s) imported into {selectedAccount?.name}.</span>
+              <Button variant="outline" size="sm" onClick={resetImport}>Import More</Button>
+            </AlertDescription>
+          </Alert>
+        )}
+
+        {/* ── Filters ── */}
+        <div className="flex flex-wrap gap-3 items-center">
+          <div className="relative flex-1 min-w-[200px] max-w-sm">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+            <Input
+              placeholder="Search description, counterparty, category..."
+              value={searchQuery}
+              onChange={e => setSearchQuery(e.target.value)}
+              className="pl-9"
+            />
+          </div>
+          <Select value={accountFilter} onValueChange={setAccountFilter}>
+            <SelectTrigger className="w-[180px]"><SelectValue placeholder="Account" /></SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All Accounts</SelectItem>
+              {accountNames.map(n => <SelectItem key={n} value={n}>{n}</SelectItem>)}
+            </SelectContent>
+          </Select>
+          <Select value={l1Filter} onValueChange={setL1Filter}>
+            <SelectTrigger className="w-[180px]"><SelectValue placeholder="Category" /></SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All Categories</SelectItem>
+              {allL1Categories.map(c => <SelectItem key={c} value={c}>{c}</SelectItem>)}
+            </SelectContent>
+          </Select>
+          <Select value={typeFilter} onValueChange={setTypeFilter}>
+            <SelectTrigger className="w-[140px]"><SelectValue placeholder="Type" /></SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All Types</SelectItem>
+              <SelectItem value="income">Income</SelectItem>
+              <SelectItem value="expense">Expense</SelectItem>
+              <SelectItem value="transfer">Transfer</SelectItem>
+            </SelectContent>
+          </Select>
+          {(searchQuery || accountFilter !== 'all' || l1Filter !== 'all' || typeFilter !== 'all') && (
+            <Button variant="ghost" size="sm" onClick={() => { setSearchQuery(''); setAccountFilter('all'); setL1Filter('all'); setTypeFilter('all'); }}>
+              <X className="h-4 w-4 mr-1" /> Clear
+            </Button>
+          )}
+        </div>
+
+        {/* ── Transaction Table ── */}
+        <Card>
+          <CardContent className="pt-4">
+            {isLoading ? (
+              <p className="text-sm text-muted-foreground py-8 text-center">Loading transactions...</p>
+            ) : sorted.length === 0 ? (
+              <p className="text-sm text-muted-foreground py-8 text-center">
+                {transactions.length === 0 ? 'No transactions yet — import a bank CSV above to get started.' : 'No transactions match your filters.'}
+              </p>
+            ) : (
+              <>
+                <ScrollArea className="h-[600px]">
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <SortableHeader field="date">Date</SortableHeader>
+                        <SortableHeader field="account">Account</SortableHeader>
+                        <SortableHeader field="description">Description</SortableHeader>
+                        <SortableHeader field="amount" className="text-right">Amount</SortableHeader>
+                        <SortableHeader field="l1">L1</SortableHeader>
+                        <SortableHeader field="l2">L2</SortableHeader>
+                        <TableHead className="sticky top-0 bg-background w-16">Flags</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {visible.map(t => (
+                        <TableRow key={t.id} className={t.needs_review ? 'bg-orange-500/5' : ''}>
+                          <TableCell className="text-xs whitespace-nowrap">{format(new Date(t.transaction_date), 'MMM d, yyyy')}</TableCell>
+                          <TableCell className="text-xs">{t.source_account_name ?? '—'}</TableCell>
+                          <TableCell className="text-xs max-w-[250px] truncate" title={t.description ?? ''}>
+                            {t.description ?? t.merchant ?? '—'}
+                          </TableCell>
+                          <TableCell className={cn('text-xs text-right font-medium', t.amount_aud >= 0 ? 'text-green-600' : 'text-destructive')}>
+                            {t.amount_aud >= 0 ? '+' : ''}{formatCompactCurrency(Math.abs(t.amount_aud))}
+                          </TableCell>
+                          <TableCell className="text-xs">{t.l1_category ?? <span className="text-muted-foreground">—</span>}</TableCell>
+                          <TableCell className="text-xs">{t.l2_category ?? <span className="text-muted-foreground">—</span>}</TableCell>
+                          <TableCell>
+                            {t.needs_review && <Badge variant="outline" className="border-orange-500/30 text-orange-600 text-xs">Review</Badge>}
+                            {t.is_internal_transfer && <Badge variant="outline" className="text-muted-foreground text-xs">Transfer</Badge>}
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                </ScrollArea>
+                <div className="flex items-center justify-between pt-3 border-t mt-3">
+                  <p className="text-xs text-muted-foreground">
+                    Showing {visible.length} of {sorted.length} transactions
+                    {sorted.length !== transactions.length && ` (${transactions.length} total)`}
+                  </p>
+                  {hasMore && (
+                    <Button variant="outline" size="sm" onClick={() => setVisibleCount(p => Math.min(p + PAGE_SIZE, sorted.length))}>
+                      Show more (+{Math.min(PAGE_SIZE, sorted.length - visibleCount)})
+                    </Button>
+                  )}
+                </div>
+              </>
+            )}
+          </CardContent>
+        </Card>
+      </div>
+    </AppLayout>
+  );
+}

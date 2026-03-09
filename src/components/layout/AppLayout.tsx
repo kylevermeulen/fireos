@@ -33,9 +33,7 @@ const navItems: NavItem[] = [
   { label: 'Retirement', href: '/retirement', icon: <Landmark className="h-5 w-5" /> },
   { label: 'Mortgage', href: '/mortgage', icon: <Home className="h-5 w-5" /> },
   { label: 'Cashflow', href: '/cashflow', icon: <DollarSign className="h-5 w-5" /> },
-  { label: 'FIRE', href: '/fire', icon: <Flame className="h-5 w-5" /> },
-  { label: 'Goals', href: '/goals', icon: <Flame className="h-5 w-5" /> },
-  { label: 'Projections', href: '/projections', icon: <TrendingUp className="h-5 w-5" /> },
+  { label: 'Transactions', href: '/transactions', icon: <PieChart className="h-5 w-5" /> },
   { label: 'Settings', href: '/settings', icon: <Settings className="h-5 w-5" /> },
 ];
 
