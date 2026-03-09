@@ -33,11 +33,14 @@ export interface ImportPreviewRow {
   amount: number;
   counterparty: string;
   matchedRule: CategoryRule | null;
-  bankCategory: string;       // Raw category from bank CSV
-  mappedL1: string | null;    // L1 from bank category mapping
-  mappedL2: string | null;    // L2 from bank category mapping
-  isTransfer: boolean;        // Detected as internal transfer from bank tx type
+  bankCategory: string;
+  mappedL1: string | null;
+  mappedL2: string | null;
+  isTransfer: boolean;
   isDuplicate: boolean;
+  dupeType: 'none' | 'same-account' | 'cross-account';  // Why it was flagged
+  dupeAccountName: string | null;  // Which account has the matching tx
+  excluded: boolean;               // User can toggle this
   rawLine: string;
 }
 
