@@ -291,6 +291,20 @@ export function useBankImporter() {
         amount = parseAmount(cells[config.columnMapping.amount] ?? '');
       }
 
+      // If direction column exists (Wise format), use it to determine sign
+      if (config.columnMapping.direction != null && amount != null) {
+        const direction = (cells[config.columnMapping.direction] ?? '').toUpperCase().trim();
+        // Add fee back to get full source amount
+        if (config.columnMapping.feeAmount != null) {
+          const fee = parseAmount(cells[config.columnMapping.feeAmount] ?? '');
+          if (fee != null) amount = amount + Math.abs(fee);
+        }
+        amount = Math.abs(amount);
+        if (direction === 'OUT') amount = -amount;
+        // NEUTRAL direction (e.g. currency conversion) — treat as outflow
+        if (direction === 'NEUTRAL') amount = -amount;
+      }
+
       if (config.invertSign && amount != null) amount = -amount;
 
       const parsedDate = parseDate(dateStr, dateFormat);
