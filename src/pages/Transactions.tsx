@@ -82,6 +82,7 @@ export default function Transactions() {
   const [useSeparateDebitCredit, setUseSeparateDebitCredit] = useState(false);
   const [importStep, setImportStep] = useState<'idle' | 'map' | 'preview' | 'done'>('idle');
   const [dragActive, setDragActive] = useState(false);
+  const [invertSign, setInvertSign] = useState(false);
 
   const selectedAccount = accounts.find(a => a.id === selectedAccountId);
 
@@ -194,6 +195,12 @@ export default function Transactions() {
     // Load the first file for mapping
     const first = csvFiles[0];
     setCurrentFileName(first.name);
+    // Auto-detect credit card by filename or account name
+    const fnLower = first.name.toLowerCase();
+    const acctLower = (selectedAccount?.name ?? '').toLowerCase();
+    if (fnLower.includes('amex') || fnLower.includes('americanexpress') || acctLower.includes('american express') || acctLower.includes('amex')) {
+      setInvertSign(true);
+    }
     first.text().then(content => {
       setCsvContent(content);
       // Parse header line properly (handles quoted headers with commas)
@@ -243,7 +250,7 @@ export default function Transactions() {
       columnMapping,
       dateFormat,
       skipRows: 1,
-      invertSign: false,
+      invertSign,
     };
     const parsed = parseFile(csvContent, config, applyRules);
     const withDupes = await checkDuplicates(parsed, selectedAccountId);
@@ -263,7 +270,7 @@ export default function Transactions() {
       columnMapping,
       dateFormat,
       skipRows: 1,
-      invertSign: false,
+      invertSign,
     };
 
     await importRows(previewRows, config);
@@ -288,6 +295,7 @@ export default function Transactions() {
     setHeaders([]);
     setPreviewRows([]);
     setImportStep('idle');
+    setInvertSign(false);
   };
 
   const includedCount = previewRows.filter(r => !r.excluded).length;
@@ -451,10 +459,14 @@ export default function Transactions() {
                   </>
                 )}
               </div>
-              <div className="flex items-center gap-2">
+              <div className="flex items-center gap-3">
                 <Button variant="outline" size="sm" onClick={() => setUseSeparateDebitCredit(!useSeparateDebitCredit)}>
                   {useSeparateDebitCredit ? 'Use Single Amount' : 'Use Debit/Credit'}
                 </Button>
+                <label className="flex items-center gap-2 text-sm cursor-pointer">
+                  <input type="checkbox" checked={invertSign} onChange={e => setInvertSign(e.target.checked)} />
+                  Invert sign <span className="text-muted-foreground text-xs">(credit cards: charges are positive)</span>
+                </label>
               </div>
               <div className="flex justify-between">
                 <Button variant="ghost" onClick={resetImport}>Cancel</Button>
