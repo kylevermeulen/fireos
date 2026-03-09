@@ -196,22 +196,27 @@ export default function Transactions() {
     setCurrentFileName(first.name);
     first.text().then(content => {
       setCsvContent(content);
+      // Parse header line properly (handles quoted headers with commas)
       const firstLine = content.split(/\r?\n/)[0] ?? '';
-      const hdrs = firstLine.split(',').map(h => h.replace(/"/g, '').trim());
+      const hdrs: string[] = [];
+      let cur = '', inQ = false;
+      for (let ci = 0; ci < firstLine.length; ci++) {
+        const ch = firstLine[ci];
+        if (ch === '"') { inQ = !inQ; continue; }
+        if (ch === ',' && !inQ) { hdrs.push(cur.trim()); cur = ''; continue; }
+        cur += ch;
+      }
+      hdrs.push(cur.trim());
+      // Remove BOM
+      if (hdrs[0]?.startsWith('\uFEFF')) hdrs[0] = hdrs[0].slice(1);
+
       setHeaders(hdrs);
-      // Auto-detect columns
-      const autoMap: ColumnMapping = { date: 0, description: 1, amount: 2 };
-      let hasDebitCredit = false;
-      hdrs.forEach((h, i) => {
-        const lc = h.toLowerCase();
-        if (lc.includes('date')) autoMap.date = i;
-        if (lc.includes('description') || lc.includes('narrative') || lc.includes('details') || lc.includes('memo')) autoMap.description = i;
-        if (lc === 'amount' || lc === 'value') autoMap.amount = i;
-        if (lc === 'debit') { autoMap.debit = i; hasDebitCredit = true; }
-        if (lc === 'credit') { autoMap.credit = i; hasDebitCredit = true; }
-      });
+
+      // Use smart auto-detection
+      const { mapping, hasDebitCredit, detectedDateFormat } = autoDetectColumns(hdrs);
       setUseSeparateDebitCredit(hasDebitCredit);
-      setColumnMapping(autoMap);
+      setColumnMapping(mapping);
+      if (detectedDateFormat !== 'auto') setDateFormat(detectedDateFormat);
       setImportStep('map');
     });
   }, []);
