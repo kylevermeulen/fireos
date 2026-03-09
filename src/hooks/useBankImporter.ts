@@ -391,7 +391,7 @@ export function useBankImporter() {
         return result;
       }
 
-      const dates = nonDuplicates.map(r => r.date).sort();
+      const dates = toImport.map(r => r.date).sort();
 
       const { data: importLog, error: logError } = await supabase
         .from('bank_import_logs')
@@ -401,7 +401,7 @@ export function useBankImporter() {
           file_name: config.fileName,
           rows_total: rows.length,
           rows_duplicates: result.duplicates,
-          rows_imported: nonDuplicates.length,
+          rows_imported: toImport.length,
           date_from: dates[0],
           date_to: dates[dates.length - 1],
         })
@@ -409,7 +409,7 @@ export function useBankImporter() {
         .single();
       if (logError) throw logError;
 
-      const txRecords = nonDuplicates.map(row => {
+      const txRecords = toImport.map(row => {
         const isIncome = row.amount > 0;
         const rule = row.matchedRule;
 
