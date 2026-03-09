@@ -26,6 +26,7 @@ const SEED_ACCOUNTS = [
   { name: 'Bank of Melbourne: Variable Loan', institution: 'Bank of Melbourne', country: 'AU', currency: 'AUD' as const, account_type: 'cash' as const, liquidity_class: 'liquid' as const },
   { name: 'Up Bank: Joint Account', institution: 'Up', country: 'AU', currency: 'AUD' as const, account_type: 'cash' as const, liquidity_class: 'liquid' as const },
   { name: 'American Express', institution: 'American Express', country: 'AU', currency: 'AUD' as const, account_type: 'cash' as const, liquidity_class: 'liquid' as const },
+  { name: 'Wise', institution: 'Wise', country: 'AU', currency: 'AUD' as const, account_type: 'cash' as const, liquidity_class: 'liquid' as const },
 
   // Indonesia (IDR)
   { name: 'Permata', institution: 'Permata Bank', country: 'ID', currency: 'IDR' as const, account_type: 'cash' as const, liquidity_class: 'liquid' as const },
