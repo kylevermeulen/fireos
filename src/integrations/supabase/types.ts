@@ -94,6 +94,92 @@ export type Database = {
           },
         ]
       }
+      bank_import_logs: {
+        Row: {
+          account_id: string | null
+          created_at: string
+          date_from: string | null
+          date_to: string | null
+          file_name: string
+          id: string
+          rows_duplicates: number
+          rows_imported: number
+          rows_total: number
+          user_id: string
+        }
+        Insert: {
+          account_id?: string | null
+          created_at?: string
+          date_from?: string | null
+          date_to?: string | null
+          file_name: string
+          id?: string
+          rows_duplicates?: number
+          rows_imported?: number
+          rows_total?: number
+          user_id: string
+        }
+        Update: {
+          account_id?: string | null
+          created_at?: string
+          date_from?: string | null
+          date_to?: string | null
+          file_name?: string
+          id?: string
+          rows_duplicates?: number
+          rows_imported?: number
+          rows_total?: number
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "bank_import_logs_account_id_fkey"
+            columns: ["account_id"]
+            isOneToOne: false
+            referencedRelation: "accounts"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      category_rules: {
+        Row: {
+          created_at: string
+          id: string
+          is_internal_transfer: boolean
+          keyword: string
+          l1_category: string
+          l2_category: string | null
+          needs_review: boolean
+          priority: number
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          is_internal_transfer?: boolean
+          keyword: string
+          l1_category: string
+          l2_category?: string | null
+          needs_review?: boolean
+          priority?: number
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          is_internal_transfer?: boolean
+          keyword?: string
+          l1_category?: string
+          l2_category?: string | null
+          needs_review?: boolean
+          priority?: number
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       fire_settings: {
         Row: {
           created_at: string
@@ -475,11 +561,18 @@ export type Database = {
           amount_aud: number
           amount_native: number
           category: string | null
+          counterparty: string | null
           created_at: string
           currency: Database["public"]["Enums"]["currency_code"]
           description: string | null
           id: string
+          is_internal_transfer: boolean
+          l1_category: string | null
+          l2_category: string | null
           merchant: string | null
+          needs_review: boolean
+          source_account_name: string | null
+          source_import_id: string | null
           tags: string[] | null
           transaction_date: string
           transaction_type: Database["public"]["Enums"]["transaction_type"]
@@ -491,11 +584,18 @@ export type Database = {
           amount_aud: number
           amount_native: number
           category?: string | null
+          counterparty?: string | null
           created_at?: string
           currency?: Database["public"]["Enums"]["currency_code"]
           description?: string | null
           id?: string
+          is_internal_transfer?: boolean
+          l1_category?: string | null
+          l2_category?: string | null
           merchant?: string | null
+          needs_review?: boolean
+          source_account_name?: string | null
+          source_import_id?: string | null
           tags?: string[] | null
           transaction_date: string
           transaction_type?: Database["public"]["Enums"]["transaction_type"]
@@ -507,11 +607,18 @@ export type Database = {
           amount_aud?: number
           amount_native?: number
           category?: string | null
+          counterparty?: string | null
           created_at?: string
           currency?: Database["public"]["Enums"]["currency_code"]
           description?: string | null
           id?: string
+          is_internal_transfer?: boolean
+          l1_category?: string | null
+          l2_category?: string | null
           merchant?: string | null
+          needs_review?: boolean
+          source_account_name?: string | null
+          source_import_id?: string | null
           tags?: string[] | null
           transaction_date?: string
           transaction_type?: Database["public"]["Enums"]["transaction_type"]
@@ -524,6 +631,13 @@ export type Database = {
             columns: ["account_id"]
             isOneToOne: false
             referencedRelation: "accounts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "transactions_source_import_id_fkey"
+            columns: ["source_import_id"]
+            isOneToOne: false
+            referencedRelation: "bank_import_logs"
             referencedColumns: ["id"]
           },
         ]
