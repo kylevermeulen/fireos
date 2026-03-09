@@ -195,6 +195,12 @@ export default function Transactions() {
     // Load the first file for mapping
     const first = csvFiles[0];
     setCurrentFileName(first.name);
+    // Auto-detect credit card by filename or account name
+    const fnLower = first.name.toLowerCase();
+    const acctLower = (selectedAccount?.name ?? '').toLowerCase();
+    if (fnLower.includes('amex') || fnLower.includes('americanexpress') || acctLower.includes('american express') || acctLower.includes('amex')) {
+      setInvertSign(true);
+    }
     first.text().then(content => {
       setCsvContent(content);
       // Parse header line properly (handles quoted headers with commas)
