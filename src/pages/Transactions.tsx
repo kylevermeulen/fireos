@@ -15,6 +15,7 @@ import {
 import { supabase } from '@/integrations/supabase/client';
 import { useBankImporter, BankImportConfig, ImportPreviewRow, ColumnMapping } from '@/hooks/useBankImporter';
 import { useCategoryRules } from '@/hooks/useCategoryRules';
+import { CategoryRulesPanel } from '@/components/transactions/CategoryRulesPanel';
 import { formatCompactCurrency } from '@/lib/format';
 import { cn } from '@/lib/utils';
 
@@ -319,16 +320,15 @@ export default function Transactions() {
             <p className="text-muted-foreground">Import, categorize, and review bank transactions</p>
           </div>
           <div className="flex gap-2">
-            <Button variant="outline" size="sm" onClick={seedRules} disabled={isSeeding || rulesLoading}>
-              <Tag className="h-4 w-4 mr-1" />
-              {rules.length > 0 ? `${rules.length} Rules` : 'Seed Rules'}
-            </Button>
             <Button variant="outline" size="sm" onClick={handleExport} disabled={sorted.length === 0}>
               <Download className="h-4 w-4 mr-1" />
               Export
             </Button>
           </div>
         </div>
+
+        {/* ── Category Rules Panel ── */}
+        <CategoryRulesPanel />
 
         {/* ── Import Zone ── */}
         {importStep === 'idle' && (
