@@ -159,6 +159,15 @@ export function TransactionsTable({
               Clear
             </Button>
           )}
+          <Button
+            variant="outline"
+            size="sm"
+            className="h-7 px-2"
+            onClick={() => exportTransactionsCsv(sortedTransactions, `cashflow_export_${format(new Date(), 'yyyy-MM-dd')}.csv`)}
+          >
+            <Download className="h-3 w-3 mr-1" />
+            Export CSV
+          </Button>
         </div>
       </CardHeader>
       <CardContent className="pt-0">
