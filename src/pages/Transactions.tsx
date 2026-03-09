@@ -13,7 +13,7 @@ import {
   Upload, Search, ArrowUp, ArrowDown, ArrowUpDown, Download, Check, FileSpreadsheet, Tag, X, AlertTriangle,
 } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
-import { useBankImporter, BankImportConfig, ImportPreviewRow, ColumnMapping } from '@/hooks/useBankImporter';
+import { useBankImporter, BankImportConfig, ImportPreviewRow, ColumnMapping, autoDetectColumns } from '@/hooks/useBankImporter';
 import { useCategoryRules } from '@/hooks/useCategoryRules';
 import { CategoryRulesPanel } from '@/components/transactions/CategoryRulesPanel';
 import { formatCompactCurrency } from '@/lib/format';
@@ -72,7 +72,7 @@ export default function Transactions() {
   const { parseFile, checkDuplicates, importRows, isImporting } = useBankImporter();
   const { rules, applyRules, seedRules, isSeeding, isLoading: rulesLoading } = useCategoryRules();
   const [selectedAccountId, setSelectedAccountId] = useState<string>('');
-  const [dateFormat, setDateFormat] = useState<BankImportConfig['dateFormat']>('dd/mm/yyyy');
+  const [dateFormat, setDateFormat] = useState<BankImportConfig['dateFormat']>('auto');
   const [pendingFiles, setPendingFiles] = useState<File[]>([]);
   const [csvContent, setCsvContent] = useState<string | null>(null);
   const [currentFileName, setCurrentFileName] = useState<string | null>(null);
@@ -196,22 +196,27 @@ export default function Transactions() {
     setCurrentFileName(first.name);
     first.text().then(content => {
       setCsvContent(content);
+      // Parse header line properly (handles quoted headers with commas)
       const firstLine = content.split(/\r?\n/)[0] ?? '';
-      const hdrs = firstLine.split(',').map(h => h.replace(/"/g, '').trim());
+      const hdrs: string[] = [];
+      let cur = '', inQ = false;
+      for (let ci = 0; ci < firstLine.length; ci++) {
+        const ch = firstLine[ci];
+        if (ch === '"') { inQ = !inQ; continue; }
+        if (ch === ',' && !inQ) { hdrs.push(cur.trim()); cur = ''; continue; }
+        cur += ch;
+      }
+      hdrs.push(cur.trim());
+      // Remove BOM
+      if (hdrs[0]?.startsWith('\uFEFF')) hdrs[0] = hdrs[0].slice(1);
+
       setHeaders(hdrs);
-      // Auto-detect columns
-      const autoMap: ColumnMapping = { date: 0, description: 1, amount: 2 };
-      let hasDebitCredit = false;
-      hdrs.forEach((h, i) => {
-        const lc = h.toLowerCase();
-        if (lc.includes('date')) autoMap.date = i;
-        if (lc.includes('description') || lc.includes('narrative') || lc.includes('details') || lc.includes('memo')) autoMap.description = i;
-        if (lc === 'amount' || lc === 'value') autoMap.amount = i;
-        if (lc === 'debit') { autoMap.debit = i; hasDebitCredit = true; }
-        if (lc === 'credit') { autoMap.credit = i; hasDebitCredit = true; }
-      });
+
+      // Use smart auto-detection
+      const { mapping, hasDebitCredit, detectedDateFormat } = autoDetectColumns(hdrs);
       setUseSeparateDebitCredit(hasDebitCredit);
-      setColumnMapping(autoMap);
+      setColumnMapping(mapping);
+      if (detectedDateFormat !== 'auto') setDateFormat(detectedDateFormat);
       setImportStep('map');
     });
   }, []);
@@ -346,6 +351,8 @@ export default function Transactions() {
                 <Select value={dateFormat} onValueChange={v => setDateFormat(v as any)}>
                   <SelectTrigger><SelectValue /></SelectTrigger>
                   <SelectContent>
+                    <SelectItem value="auto">Auto-detect</SelectItem>
+                    <SelectItem value="iso">ISO 8601 (Up Bank)</SelectItem>
                     <SelectItem value="dd/mm/yyyy">DD/MM/YYYY</SelectItem>
                     <SelectItem value="yyyy-mm-dd">YYYY-MM-DD</SelectItem>
                     <SelectItem value="mm/dd/yyyy">MM/DD/YYYY</SelectItem>
@@ -477,27 +484,41 @@ export default function Transactions() {
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {previewRows.slice(0, 100).map((row, i) => (
-                      <TableRow key={i} className={row.isDuplicate ? 'opacity-40' : ''}>
-                        <TableCell>
-                          {row.isDuplicate ? (
-                            <Badge variant="outline" className="text-muted-foreground text-xs">Dupe</Badge>
-                          ) : row.matchedRule?.needs_review ? (
-                            <Badge variant="outline" className="border-orange-500/30 text-orange-600 text-xs">Review</Badge>
-                          ) : (
-                            <Badge variant="outline" className="border-green-500/30 text-green-600 text-xs">New</Badge>
-                          )}
-                        </TableCell>
-                        <TableCell className="text-xs">{row.date}</TableCell>
-                        <TableCell className="text-xs max-w-[250px] truncate">{row.description}</TableCell>
-                        <TableCell className={cn('text-right text-xs', row.amount >= 0 ? 'text-green-600' : 'text-destructive')}>
-                          {formatCompactCurrency(Math.abs(row.amount))}
-                        </TableCell>
-                        <TableCell className="text-xs">
-                          {row.matchedRule ? <span className="text-primary">{row.matchedRule.l1_category}</span> : <span className="text-muted-foreground">—</span>}
-                        </TableCell>
-                      </TableRow>
-                    ))}
+                    {previewRows.slice(0, 100).map((row, i) => {
+                      const catSource = row.matchedRule ? 'rule' : row.mappedL1 ? 'bank' : null;
+                      const displayL1 = row.matchedRule?.l1_category ?? row.mappedL1 ?? null;
+                      const displayL2 = row.matchedRule?.l2_category ?? row.mappedL2 ?? null;
+                      return (
+                        <TableRow key={i} className={row.isDuplicate ? 'opacity-40' : ''}>
+                          <TableCell>
+                            {row.isDuplicate ? (
+                              <Badge variant="outline" className="text-muted-foreground text-xs">Dupe</Badge>
+                            ) : row.isTransfer ? (
+                              <Badge variant="outline" className="border-blue-500/30 text-blue-600 text-xs">Transfer</Badge>
+                            ) : row.matchedRule?.needs_review ? (
+                              <Badge variant="outline" className="border-orange-500/30 text-orange-600 text-xs">Review</Badge>
+                            ) : (
+                              <Badge variant="outline" className="border-green-500/30 text-green-600 text-xs">New</Badge>
+                            )}
+                          </TableCell>
+                          <TableCell className="text-xs">{row.date}</TableCell>
+                          <TableCell className="text-xs max-w-[250px] truncate">{row.description}</TableCell>
+                          <TableCell className={cn('text-right text-xs', row.amount >= 0 ? 'text-green-600' : 'text-destructive')}>
+                            {formatCompactCurrency(Math.abs(row.amount))}
+                          </TableCell>
+                          <TableCell className="text-xs">
+                            {displayL1 ? (
+                              <span className={catSource === 'rule' ? 'text-primary' : 'text-muted-foreground'}>
+                                {displayL1}{displayL2 ? ` › ${displayL2}` : ''}
+                                {catSource === 'bank' && <span className="text-[10px] ml-1 opacity-60">(bank)</span>}
+                              </span>
+                            ) : (
+                              <span className="text-muted-foreground">—</span>
+                            )}
+                          </TableCell>
+                        </TableRow>
+                      );
+                    })}
                   </TableBody>
                 </Table>
               </div>

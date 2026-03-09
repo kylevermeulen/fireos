@@ -2,6 +2,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { useState, useCallback } from 'react';
 import { CategoryRule } from './useCategoryRules';
+import { mapUpCategory } from '@/lib/upbank-categories';
 
 export interface ColumnMapping {
   date: number;
@@ -11,6 +12,8 @@ export interface ColumnMapping {
   credit?: number;         // Separate credit column
   counterparty?: number;   // Optional counterparty column
   balance?: number;        // Optional running balance (ignored for import)
+  category?: number;       // Optional bank-provided category column
+  transactionType?: number; // Optional bank transaction type (e.g. Transfer, Purchase)
 }
 
 export interface BankImportConfig {
@@ -19,7 +22,7 @@ export interface BankImportConfig {
   currency: string;
   fileName: string;
   columnMapping: ColumnMapping;
-  dateFormat: 'dd/mm/yyyy' | 'yyyy-mm-dd' | 'mm/dd/yyyy' | 'dd-mm-yyyy';
+  dateFormat: 'dd/mm/yyyy' | 'yyyy-mm-dd' | 'mm/dd/yyyy' | 'dd-mm-yyyy' | 'iso' | 'auto';
   skipRows: number;        // Header rows to skip (default 1)
   invertSign: boolean;     // Some banks show expenses as positive
 }
@@ -30,6 +33,10 @@ export interface ImportPreviewRow {
   amount: number;
   counterparty: string;
   matchedRule: CategoryRule | null;
+  bankCategory: string;       // Raw category from bank CSV
+  mappedL1: string | null;    // L1 from bank category mapping
+  mappedL2: string | null;    // L2 from bank category mapping
+  isTransfer: boolean;        // Detected as internal transfer from bank tx type
   isDuplicate: boolean;
   rawLine: string;
 }
@@ -63,19 +70,37 @@ function parseDate(dateStr: string, format: BankImportConfig['dateFormat']): str
   if (!dateStr) return null;
   const clean = dateStr.trim();
 
-  if (format === 'yyyy-mm-dd') {
+  // ISO 8601 datetime (e.g. 2026-03-09T14:21:42+11:00)
+  if (format === 'iso' || format === 'auto') {
+    const isoMatch = clean.match(/^(\d{4})-(\d{2})-(\d{2})T/);
+    if (isoMatch) return `${isoMatch[1]}-${isoMatch[2]}-${isoMatch[3]}`;
+  }
+
+  if (format === 'yyyy-mm-dd' || format === 'auto') {
     const m = clean.match(/^(\d{4})-(\d{2})-(\d{2})$/);
     if (m) return `${m[1]}-${m[2]}-${m[3]}`;
-  } else if (format === 'dd/mm/yyyy') {
+  }
+
+  if (format === 'dd/mm/yyyy' || format === 'auto') {
     const m = clean.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
-    if (m) return `${m[3]}-${m[2].padStart(2, '0')}-${m[1].padStart(2, '0')}`;
-  } else if (format === 'mm/dd/yyyy') {
+    if (m && (format === 'dd/mm/yyyy' || parseInt(m[1]) > 12)) {
+      return `${m[3]}-${m[2].padStart(2, '0')}-${m[1].padStart(2, '0')}`;
+    }
+    if (m && format === 'auto') {
+      return `${m[3]}-${m[2].padStart(2, '0')}-${m[1].padStart(2, '0')}`;
+    }
+  }
+
+  if (format === 'mm/dd/yyyy') {
     const m = clean.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
     if (m) return `${m[3]}-${m[1].padStart(2, '0')}-${m[2].padStart(2, '0')}`;
-  } else if (format === 'dd-mm-yyyy') {
+  }
+
+  if (format === 'dd-mm-yyyy') {
     const m = clean.match(/^(\d{1,2})-(\d{1,2})-(\d{4})$/);
     if (m) return `${m[3]}-${m[2].padStart(2, '0')}-${m[1].padStart(2, '0')}`;
   }
+
   return null;
 }
 
@@ -87,6 +112,95 @@ function parseAmount(value: string): number | null {
   const n = parseFloat(s);
   if (!isFinite(n)) return null;
   return neg ? -Math.abs(n) : n;
+}
+
+/**
+ * Detect the date format from sample values in the date column.
+ */
+function detectDateFormat(samples: string[]): BankImportConfig['dateFormat'] {
+  for (const s of samples) {
+    if (s.match(/^\d{4}-\d{2}-\d{2}T/)) return 'iso';
+    if (s.match(/^\d{4}-\d{2}-\d{2}$/)) return 'yyyy-mm-dd';
+    if (s.match(/^\d{1,2}\/\d{1,2}\/\d{4}$/)) return 'dd/mm/yyyy';
+    if (s.match(/^\d{1,2}-\d{1,2}-\d{4}$/)) return 'dd-mm-yyyy';
+  }
+  return 'auto';
+}
+
+/**
+ * Normalize a header name for flexible matching.
+ */
+function norm(h: string): string {
+  return h.toLowerCase().replace(/[_\s]+/g, ' ').trim();
+}
+
+/**
+ * Find column index using flexible matching (exact → starts-with → contains).
+ */
+function findCol(headers: string[], names: string[]): number {
+  const nh = headers.map(norm);
+  const nn = names.map(n => n.toLowerCase());
+
+  for (const n of nn) {
+    const idx = nh.indexOf(n);
+    if (idx !== -1) return idx;
+  }
+  for (const n of nn) {
+    const idx = nh.findIndex(h => h.startsWith(n));
+    if (idx !== -1) return idx;
+  }
+  for (const n of nn) {
+    const idx = nh.findIndex(h => h.includes(n));
+    if (idx !== -1) return idx;
+  }
+  return -1;
+}
+
+/**
+ * Auto-detect column mapping from CSV headers.
+ */
+export function autoDetectColumns(headers: string[]): { mapping: ColumnMapping; hasDebitCredit: boolean; detectedDateFormat: BankImportConfig['dateFormat'] } {
+  const mapping: ColumnMapping = { date: 0, description: 1, amount: 2 };
+  let hasDebitCredit = false;
+
+  // Date: prefer "Settled Date" (actual settlement), then "Time", then generic "date"
+  const settledIdx = findCol(headers, ['settled date']);
+  const timeIdx = findCol(headers, ['time']);
+  const dateIdx = findCol(headers, ['date', 'transaction date', 'trans date']);
+  mapping.date = settledIdx !== -1 ? settledIdx : (timeIdx !== -1 ? timeIdx : (dateIdx !== -1 ? dateIdx : 0));
+
+  // Description
+  const descIdx = findCol(headers, ['description', 'narrative', 'details', 'memo', 'transaction description']);
+  if (descIdx !== -1) mapping.description = descIdx;
+
+  // Amount: prefer "Subtotal (AUD)" or "Total (AUD)", then generic
+  const subtotalIdx = findCol(headers, ['subtotal (aud)', 'subtotal']);
+  const totalIdx = findCol(headers, ['total (aud)', 'total']);
+  const amountIdx = findCol(headers, ['amount', 'value']);
+  mapping.amount = subtotalIdx !== -1 ? subtotalIdx : (totalIdx !== -1 ? totalIdx : (amountIdx !== -1 ? amountIdx : 2));
+
+  // Debit/Credit
+  const debitIdx = findCol(headers, ['debit']);
+  const creditIdx = findCol(headers, ['credit']);
+  if (debitIdx !== -1 && creditIdx !== -1) {
+    mapping.debit = debitIdx;
+    mapping.credit = creditIdx;
+    hasDebitCredit = true;
+  }
+
+  // Counterparty / Payee
+  const payeeIdx = findCol(headers, ['payee', 'counterparty', 'merchant', 'beneficiary']);
+  if (payeeIdx !== -1) mapping.counterparty = payeeIdx;
+
+  // Bank-provided category
+  const catIdx = findCol(headers, ['category']);
+  if (catIdx !== -1) mapping.category = catIdx;
+
+  // Transaction type (Transfer, Purchase, Direct Credit, etc.)
+  const typeIdx = findCol(headers, ['transaction type', 'type']);
+  if (typeIdx !== -1) mapping.transactionType = typeIdx;
+
+  return { mapping, hasDebitCredit, detectedDateFormat: 'auto' };
 }
 
 export function useBankImporter() {
@@ -101,12 +215,34 @@ export function useBankImporter() {
     const lines = csvContent.split(/\r?\n/).filter(l => l.trim());
     const rows: ImportPreviewRow[] = [];
 
+    // Auto-detect date format from first few data rows
+    let dateFormat = config.dateFormat;
+    if (dateFormat === 'auto') {
+      const samples: string[] = [];
+      for (let i = config.skipRows; i < Math.min(config.skipRows + 5, lines.length); i++) {
+        const cells = parseCsvLine(lines[i]);
+        const val = cells[config.columnMapping.date] ?? '';
+        if (val) samples.push(val.trim());
+      }
+      dateFormat = detectDateFormat(samples);
+    }
+
     for (let i = config.skipRows; i < lines.length; i++) {
       const cells = parseCsvLine(lines[i]);
       const dateStr = cells[config.columnMapping.date] ?? '';
       const description = cells[config.columnMapping.description] ?? '';
       const counterparty = config.columnMapping.counterparty != null
         ? (cells[config.columnMapping.counterparty] ?? '')
+        : '';
+
+      // Bank-provided category (e.g. Up Bank "Category" column)
+      const bankCategory = config.columnMapping.category != null
+        ? (cells[config.columnMapping.category] ?? '')
+        : '';
+
+      // Bank transaction type (e.g. "Transfer", "Purchase")
+      const bankTxType = config.columnMapping.transactionType != null
+        ? (cells[config.columnMapping.transactionType] ?? '')
         : '';
 
       let amount: number | null = null;
@@ -121,18 +257,29 @@ export function useBankImporter() {
 
       if (config.invertSign && amount != null) amount = -amount;
 
-      const parsedDate = parseDate(dateStr, config.dateFormat);
+      const parsedDate = parseDate(dateStr, dateFormat);
       if (!parsedDate || amount == null) continue;
 
-      const searchText = `${description} ${counterparty}`;
+      // Detect internal transfers from bank tx type
+      const isTransfer = bankTxType.toLowerCase() === 'transfer';
+
+      // Try our category rules first
+      const searchText = `${counterparty} ${description}`;
       const matchedRule = applyRules(searchText);
+
+      // Map bank category to our L1/L2
+      const bankMapping = mapUpCategory(bankCategory);
 
       rows.push({
         date: parsedDate,
-        description,
+        description: counterparty || description, // Prefer payee name (cleaner)
         amount,
         counterparty,
         matchedRule,
+        bankCategory,
+        mappedL1: bankMapping?.l1 ?? null,
+        mappedL2: bankMapping?.l2 ?? null,
+        isTransfer,
         isDuplicate: false,
         rawLine: lines[i],
       });
@@ -147,12 +294,10 @@ export function useBankImporter() {
   ): Promise<ImportPreviewRow[]> => {
     if (rows.length === 0) return rows;
 
-    // Get date range
     const dates = rows.map(r => r.date).sort();
     const minDate = dates[0];
     const maxDate = dates[dates.length - 1];
 
-    // Fetch existing transactions in this date range for this account
     const { data: existing } = await supabase
       .from('transactions')
       .select('transaction_date, amount_native')
@@ -162,19 +307,12 @@ export function useBankImporter() {
 
     if (!existing || existing.length === 0) return rows;
 
-    // Build a set of date+amount keys for dedup
-    const existingKeys = new Set(
-      existing.map(t => `${t.transaction_date}|${Number(t.amount_native).toFixed(2)}`)
-    );
-
-    // Count occurrences of each key in existing to handle multiple same-day same-amount
     const existingCounts = new Map<string, number>();
     for (const t of existing) {
       const key = `${t.transaction_date}|${Number(t.amount_native).toFixed(2)}`;
       existingCounts.set(key, (existingCounts.get(key) ?? 0) + 1);
     }
 
-    // Track how many times we've "used" each key in the new rows
     const usedCounts = new Map<string, number>();
 
     return rows.map(row => {
@@ -209,10 +347,8 @@ export function useBankImporter() {
         return result;
       }
 
-      // Get date range for the log
       const dates = nonDuplicates.map(r => r.date).sort();
 
-      // Create import log
       const { data: importLog, error: logError } = await supabase
         .from('bank_import_logs')
         .insert({
@@ -229,32 +365,40 @@ export function useBankImporter() {
         .single();
       if (logError) throw logError;
 
-      // Build transaction records
       const txRecords = nonDuplicates.map(row => {
         const isIncome = row.amount > 0;
         const rule = row.matchedRule;
+
+        // Category priority: rule match > bank category mapping > fallback
+        const l1 = rule?.l1_category ?? row.mappedL1 ?? (isIncome ? 'Income' : 'Unknown');
+        const l2 = rule?.l2_category ?? row.mappedL2 ?? null;
+
+        // Transfer detection: rule says transfer, OR bank tx type is "Transfer"
+        const isTransfer = rule?.is_internal_transfer ?? row.isTransfer;
+
+        // Needs review if rule says so, or if no categorization at all
+        const needsReview = rule?.needs_review ?? (!rule && !row.mappedL1);
 
         return {
           user_id: user.id,
           account_id: config.accountId,
           transaction_date: row.date,
           amount_native: row.amount,
-          amount_aud: row.amount, // Same for AUD accounts; FX conversion needed for others
+          amount_aud: row.amount,
           currency: config.currency as 'AUD' | 'USD' | 'IDR',
-          transaction_type: (rule?.is_internal_transfer ? 'transfer' : isIncome ? 'income' : 'expense') as any,
+          transaction_type: (isTransfer ? 'transfer' : isIncome ? 'income' : 'expense') as any,
           description: row.description,
           merchant: row.counterparty || null,
           counterparty: row.counterparty || null,
-          l1_category: rule?.l1_category ?? (isIncome ? 'Income' : 'Unknown'),
-          l2_category: rule?.l2_category ?? null,
-          is_internal_transfer: rule?.is_internal_transfer ?? false,
-          needs_review: rule?.needs_review ?? false,
+          l1_category: l1,
+          l2_category: l2,
+          is_internal_transfer: isTransfer,
+          needs_review: needsReview,
           source_account_name: config.accountName,
           source_import_id: importLog.id,
         };
       });
 
-      // Batch insert in chunks of 500
       for (let i = 0; i < txRecords.length; i += 500) {
         const batch = txRecords.slice(i, i + 500);
         const { error } = await supabase.from('transactions').insert(batch);
