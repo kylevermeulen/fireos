@@ -211,7 +211,9 @@ export default function Transactions() {
     // Auto-detect credit card by filename or account name
     const fnLower = first.name.toLowerCase();
     const acctLower = (selectedAccount?.name ?? '').toLowerCase();
-    if (fnLower.includes('amex') || fnLower.includes('americanexpress') || acctLower.includes('american express') || acctLower.includes('amex')) {
+    // Auto-invert sign for credit cards and loan accounts
+    if (fnLower.includes('amex') || fnLower.includes('americanexpress') || acctLower.includes('american express') || acctLower.includes('amex')
+        || acctLower.includes('fixed loan') || acctLower.includes('variable loan') || acctLower.includes('mortgage')) {
       setInvertSign(true);
     }
     first.text().then(content => {
