@@ -126,6 +126,7 @@ function parseAmount(value: string): number | null {
 function detectDateFormat(samples: string[]): BankImportConfig['dateFormat'] {
   for (const s of samples) {
     if (s.match(/^\d{4}-\d{2}-\d{2}T/)) return 'iso';
+    if (s.match(/^\d{4}-\d{2}-\d{2}[ ]/)) return 'iso'; // space-separated datetime (Wise)
     if (s.match(/^\d{4}-\d{2}-\d{2}$/)) return 'yyyy-mm-dd';
     if (s.match(/^\d{1,2}\/\d{1,2}\/\d{4}$/)) return 'dd/mm/yyyy';
     if (s.match(/^\d{1,2}-\d{1,2}-\d{4}$/)) return 'dd-mm-yyyy';
