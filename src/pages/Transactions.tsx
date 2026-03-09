@@ -15,6 +15,7 @@ import {
 import { supabase } from '@/integrations/supabase/client';
 import { useBankImporter, BankImportConfig, ImportPreviewRow, ColumnMapping } from '@/hooks/useBankImporter';
 import { useCategoryRules } from '@/hooks/useCategoryRules';
+import { CategoryRulesPanel } from '@/components/transactions/CategoryRulesPanel';
 import { formatCompactCurrency } from '@/lib/format';
 import { cn } from '@/lib/utils';
 
