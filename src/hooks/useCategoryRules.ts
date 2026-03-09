@@ -70,6 +70,12 @@ const DEFAULT_RULES: Omit<CategoryRule, 'id'>[] = [
   // Internal Transfers
   { keyword: 'GO-PAY CUSTOMER', l1_category: 'Transfer', l2_category: 'Internal Transfer', is_internal_transfer: true, needs_review: false, priority: 0 },
 
+  // Indonesia Rent (migrated from hardcoded Wise rent fix)
+  { keyword: 'LISA MICHELLE CROSBY', l1_category: 'Indonesia Rent', l2_category: 'Indonesia Rent (Prepaid)', is_internal_transfer: false, needs_review: false, priority: 0 },
+  { keyword: 'ADYATAMA', l1_category: 'Indonesia Rent', l2_category: 'Indonesia Rent (Prepaid)', is_internal_transfer: false, needs_review: false, priority: 0 },
+  { keyword: 'BALIMOVES', l1_category: 'Indonesia Rent', l2_category: 'Indonesia Rent (Prepaid)', is_internal_transfer: false, needs_review: false, priority: 0 },
+  { keyword: 'INVOICE 001', l1_category: 'Indonesia Rent', l2_category: 'Indonesia Rent (Prepaid)', is_internal_transfer: false, needs_review: false, priority: 0 },
+
   // Needs review
   { keyword: 'CENTRELINK', l1_category: 'Utilities & Bills', l2_category: 'Government', is_internal_transfer: false, needs_review: true, priority: 0 },
 ];
