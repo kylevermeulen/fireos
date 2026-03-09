@@ -14,6 +14,9 @@ export interface ColumnMapping {
   balance?: number;        // Optional running balance (ignored for import)
   category?: number;       // Optional bank-provided category column
   transactionType?: number; // Optional bank transaction type (e.g. Transfer, Purchase)
+  direction?: number;      // Direction column (IN/OUT) — determines sign (e.g. Wise)
+  feeAmount?: number;      // Fee column to add to the source amount for total
+  sourceCurrency?: number; // Source currency column
 }
 
 export interface BankImportConfig {
@@ -73,9 +76,9 @@ function parseDate(dateStr: string, format: BankImportConfig['dateFormat']): str
   if (!dateStr) return null;
   const clean = dateStr.trim();
 
-  // ISO 8601 datetime (e.g. 2026-03-09T14:21:42+11:00)
+  // ISO 8601 datetime (e.g. 2026-03-09T14:21:42+11:00) or space-separated datetime (e.g. 2026-03-08 05:46:57)
   if (format === 'iso' || format === 'auto') {
-    const isoMatch = clean.match(/^(\d{4})-(\d{2})-(\d{2})T/);
+    const isoMatch = clean.match(/^(\d{4})-(\d{2})-(\d{2})[T ]/);
     if (isoMatch) return `${isoMatch[1]}-${isoMatch[2]}-${isoMatch[3]}`;
   }
 
@@ -123,6 +126,7 @@ function parseAmount(value: string): number | null {
 function detectDateFormat(samples: string[]): BankImportConfig['dateFormat'] {
   for (const s of samples) {
     if (s.match(/^\d{4}-\d{2}-\d{2}T/)) return 'iso';
+    if (s.match(/^\d{4}-\d{2}-\d{2}[ ]/)) return 'iso'; // space-separated datetime (Wise)
     if (s.match(/^\d{4}-\d{2}-\d{2}$/)) return 'yyyy-mm-dd';
     if (s.match(/^\d{1,2}\/\d{1,2}\/\d{4}$/)) return 'dd/mm/yyyy';
     if (s.match(/^\d{1,2}-\d{1,2}-\d{4}$/)) return 'dd-mm-yyyy';
@@ -165,6 +169,35 @@ function findCol(headers: string[], names: string[]): number {
 export function autoDetectColumns(headers: string[]): { mapping: ColumnMapping; hasDebitCredit: boolean; detectedDateFormat: BankImportConfig['dateFormat'] } {
   const mapping: ColumnMapping = { date: 0, description: 1, amount: 2 };
   let hasDebitCredit = false;
+
+  // Detect Wise format by checking for "Direction" and "Created on" columns
+  const directionIdx = findCol(headers, ['direction']);
+  const createdOnIdx = findCol(headers, ['created on']);
+  const sourceAmountIdx = findCol(headers, ['source amount (after fees)', 'source amount']);
+  const targetNameIdx = findCol(headers, ['target name']);
+  const sourceNameIdx = findCol(headers, ['source name']);
+  const sourceFeeIdx = findCol(headers, ['source fee amount']);
+  const sourceCurrencyIdx = findCol(headers, ['source currency']);
+
+  const isWiseFormat = directionIdx !== -1 && createdOnIdx !== -1 && sourceAmountIdx !== -1;
+
+  if (isWiseFormat) {
+    mapping.date = createdOnIdx;
+    mapping.description = targetNameIdx !== -1 ? targetNameIdx : (sourceNameIdx !== -1 ? sourceNameIdx : 1);
+    mapping.amount = sourceAmountIdx;
+    mapping.direction = directionIdx;
+    if (sourceFeeIdx !== -1) mapping.feeAmount = sourceFeeIdx;
+    if (sourceCurrencyIdx !== -1) mapping.sourceCurrency = sourceCurrencyIdx;
+
+    // Counterparty: use the "other" party
+    if (targetNameIdx !== -1) mapping.counterparty = targetNameIdx;
+
+    // Category
+    const catIdx = findCol(headers, ['category']);
+    if (catIdx !== -1) mapping.category = catIdx;
+
+    return { mapping, hasDebitCredit: false, detectedDateFormat: 'iso' as BankImportConfig['dateFormat'] };
+  }
 
   // Date: prefer "Settled Date" (actual settlement), then "Time", then generic "date"
   const settledIdx = findCol(headers, ['settled date']);
@@ -256,6 +289,20 @@ export function useBankImporter() {
         else if (debit != null) amount = -Math.abs(debit);
       } else {
         amount = parseAmount(cells[config.columnMapping.amount] ?? '');
+      }
+
+      // If direction column exists (Wise format), use it to determine sign
+      if (config.columnMapping.direction != null && amount != null) {
+        const direction = (cells[config.columnMapping.direction] ?? '').toUpperCase().trim();
+        // Add fee back to get full source amount
+        if (config.columnMapping.feeAmount != null) {
+          const fee = parseAmount(cells[config.columnMapping.feeAmount] ?? '');
+          if (fee != null) amount = amount + Math.abs(fee);
+        }
+        amount = Math.abs(amount);
+        if (direction === 'OUT') amount = -amount;
+        // NEUTRAL direction (e.g. currency conversion) — treat as outflow
+        if (direction === 'NEUTRAL') amount = -amount;
       }
 
       if (config.invertSign && amount != null) amount = -amount;

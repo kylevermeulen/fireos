@@ -7,7 +7,7 @@ import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Upload, Check, AlertTriangle, FileSpreadsheet, Tag } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
-import { useBankImporter, BankImportConfig, ImportPreviewRow, ColumnMapping } from '@/hooks/useBankImporter';
+import { useBankImporter, autoDetectColumns, BankImportConfig, ImportPreviewRow, ColumnMapping } from '@/hooks/useBankImporter';
 import { useCategoryRules } from '@/hooks/useCategoryRules';
 import { formatCompactCurrency } from '@/lib/format';
 
@@ -47,21 +47,28 @@ export function BankImporter() {
     setFileName(file.name);
     file.text().then(content => {
       setCsvContent(content);
-      // Parse first line for headers
+      // Parse first line for headers using proper CSV parsing
       const firstLine = content.split(/\r?\n/)[0] ?? '';
-      const hdrs = firstLine.split(',').map(h => h.replace(/"/g, '').trim());
+      // Simple header extraction (handle quoted headers)
+      const hdrs: string[] = [];
+      let cur = '';
+      let inQ = false;
+      for (let i = 0; i < firstLine.length; i++) {
+        const ch = firstLine[i];
+        if (ch === '"') { inQ = !inQ; continue; }
+        if (ch === ',' && !inQ) { hdrs.push(cur.trim()); cur = ''; continue; }
+        cur += ch;
+      }
+      hdrs.push(cur.trim());
       setHeaders(hdrs);
-      // Auto-detect common column names
-      const autoMap: ColumnMapping = { date: 0, description: 1, amount: 2 };
-      hdrs.forEach((h, i) => {
-        const lc = h.toLowerCase();
-        if (lc.includes('date')) autoMap.date = i;
-        if (lc.includes('description') || lc.includes('narrative') || lc.includes('details') || lc.includes('memo')) autoMap.description = i;
-        if (lc === 'amount' || lc === 'value') autoMap.amount = i;
-        if (lc === 'debit') { autoMap.debit = i; setUseSeparateDebitCredit(true); }
-        if (lc === 'credit') { autoMap.credit = i; setUseSeparateDebitCredit(true); }
-      });
-      setColumnMapping(autoMap);
+
+      // Use the robust autoDetectColumns from useBankImporter
+      const { mapping, hasDebitCredit, detectedDateFormat } = autoDetectColumns(hdrs);
+      setColumnMapping(mapping);
+      setUseSeparateDebitCredit(hasDebitCredit);
+      if (detectedDateFormat !== 'auto') {
+        setDateFormat(detectedDateFormat);
+      }
       setStep('map');
     });
   }, []);
