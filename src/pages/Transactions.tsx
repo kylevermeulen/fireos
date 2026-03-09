@@ -264,7 +264,7 @@ export default function Transactions() {
       columnMapping,
       dateFormat,
       skipRows: 1,
-      invertSign: false,
+      invertSign,
     };
 
     await importRows(previewRows, config);
