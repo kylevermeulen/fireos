@@ -19,6 +19,7 @@ import {
 } from '@/components/ui/alert-dialog';
 
 import { SnapshotImporter } from '@/components/settings/SnapshotImporter';
+import { BankImporter } from '@/components/cashflow/BankImporter';
 import { BalanceInputForm } from '@/components/settings/BalanceInputForm';
 import { DataStatusCard } from '@/components/settings/DataStatusCard';
 import { useAuth } from '@/hooks/useAuth';
@@ -151,7 +152,10 @@ export default function Settings() {
         {/* Data Status Card */}
         <DataStatusCard />
 
-        {/* Snapshot Importer */}
+        {/* Bank Transaction Importer */}
+        <BankImporter />
+
+        {/* Snapshot Importer (legacy balance snapshots) */}
         <SnapshotImporter />
 
         {/* Balance Input Form */}
