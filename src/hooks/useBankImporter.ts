@@ -73,9 +73,9 @@ function parseDate(dateStr: string, format: BankImportConfig['dateFormat']): str
   if (!dateStr) return null;
   const clean = dateStr.trim();
 
-  // ISO 8601 datetime (e.g. 2026-03-09T14:21:42+11:00)
+  // ISO 8601 datetime (e.g. 2026-03-09T14:21:42+11:00) or space-separated datetime (e.g. 2026-03-08 05:46:57)
   if (format === 'iso' || format === 'auto') {
-    const isoMatch = clean.match(/^(\d{4})-(\d{2})-(\d{2})T/);
+    const isoMatch = clean.match(/^(\d{4})-(\d{2})-(\d{2})[T ]/);
     if (isoMatch) return `${isoMatch[1]}-${isoMatch[2]}-${isoMatch[3]}`;
   }
 
