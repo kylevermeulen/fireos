@@ -170,6 +170,35 @@ export function autoDetectColumns(headers: string[]): { mapping: ColumnMapping; 
   const mapping: ColumnMapping = { date: 0, description: 1, amount: 2 };
   let hasDebitCredit = false;
 
+  // Detect Wise format by checking for "Direction" and "Created on" columns
+  const directionIdx = findCol(headers, ['direction']);
+  const createdOnIdx = findCol(headers, ['created on']);
+  const sourceAmountIdx = findCol(headers, ['source amount (after fees)', 'source amount']);
+  const targetNameIdx = findCol(headers, ['target name']);
+  const sourceNameIdx = findCol(headers, ['source name']);
+  const sourceFeeIdx = findCol(headers, ['source fee amount']);
+  const sourceCurrencyIdx = findCol(headers, ['source currency']);
+
+  const isWiseFormat = directionIdx !== -1 && createdOnIdx !== -1 && sourceAmountIdx !== -1;
+
+  if (isWiseFormat) {
+    mapping.date = createdOnIdx;
+    mapping.description = targetNameIdx !== -1 ? targetNameIdx : (sourceNameIdx !== -1 ? sourceNameIdx : 1);
+    mapping.amount = sourceAmountIdx;
+    mapping.direction = directionIdx;
+    if (sourceFeeIdx !== -1) mapping.feeAmount = sourceFeeIdx;
+    if (sourceCurrencyIdx !== -1) mapping.sourceCurrency = sourceCurrencyIdx;
+
+    // Counterparty: use the "other" party
+    if (targetNameIdx !== -1) mapping.counterparty = targetNameIdx;
+
+    // Category
+    const catIdx = findCol(headers, ['category']);
+    if (catIdx !== -1) mapping.category = catIdx;
+
+    return { mapping, hasDebitCredit: false, detectedDateFormat: 'iso' as BankImportConfig['dateFormat'] };
+  }
+
   // Date: prefer "Settled Date" (actual settlement), then "Time", then generic "date"
   const settledIdx = findCol(headers, ['settled date']);
   const timeIdx = findCol(headers, ['time']);
