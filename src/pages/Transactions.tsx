@@ -289,6 +289,7 @@ export default function Transactions() {
     setHeaders([]);
     setPreviewRows([]);
     setImportStep('idle');
+    setInvertSign(false);
   };
 
   const includedCount = previewRows.filter(r => !r.excluded).length;
