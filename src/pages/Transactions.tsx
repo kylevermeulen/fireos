@@ -290,8 +290,14 @@ export default function Transactions() {
     setImportStep('idle');
   };
 
-  const newTxCount = previewRows.filter(r => !r.isDuplicate).length;
-  const dupeCount = previewRows.filter(r => r.isDuplicate).length;
+  const includedCount = previewRows.filter(r => !r.excluded).length;
+  const excludedCount = previewRows.filter(r => r.excluded).length;
+  const sameAcctDupes = previewRows.filter(r => r.dupeType === 'same-account').length;
+  const crossAcctDupes = previewRows.filter(r => r.dupeType === 'cross-account').length;
+
+  const toggleRowExcluded = (index: number) => {
+    setPreviewRows(prev => prev.map((r, i) => i === index ? { ...r, excluded: !r.excluded } : r));
+  };
 
   // ── Sortable header ──
   const SortableHeader = ({ field, children, className }: { field: SortField; children: React.ReactNode; className?: string }) => {
