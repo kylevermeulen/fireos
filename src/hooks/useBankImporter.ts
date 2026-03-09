@@ -383,11 +383,11 @@ export function useBankImporter() {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error('Must be logged in');
 
-      const nonDuplicates = rows.filter(r => !r.isDuplicate);
-      result.duplicates = rows.length - nonDuplicates.length;
+      const toImport = rows.filter(r => !r.excluded);
+      result.duplicates = rows.filter(r => r.excluded).length;
 
-      if (nonDuplicates.length === 0) {
-        toast({ title: 'No new transactions', description: `${result.duplicates} duplicates skipped` });
+      if (toImport.length === 0) {
+        toast({ title: 'No transactions to import', description: `${result.duplicates} excluded` });
         return result;
       }
 
