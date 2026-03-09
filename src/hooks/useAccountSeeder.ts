@@ -22,6 +22,9 @@ const SEED_ACCOUNTS = [
   { name: 'CoinJar', institution: 'CoinJar', country: 'AU', currency: 'AUD' as const, account_type: 'crypto' as const, liquidity_class: 'liquid' as const },
   { name: 'Carbon Startup Investment', institution: 'Private', country: 'AU', currency: 'AUD' as const, account_type: 'investment' as const, liquidity_class: 'illiquid' as const },
   { name: 'Up', institution: 'Up', country: 'AU', currency: 'AUD' as const, account_type: 'cash' as const, liquidity_class: 'liquid' as const },
+  { name: 'Bank of Melbourne: Fixed Loan', institution: 'Bank of Melbourne', country: 'AU', currency: 'AUD' as const, account_type: 'cash' as const, liquidity_class: 'liquid' as const },
+  { name: 'Bank of Melbourne: Variable Loan', institution: 'Bank of Melbourne', country: 'AU', currency: 'AUD' as const, account_type: 'cash' as const, liquidity_class: 'liquid' as const },
+  { name: 'Up Bank: Joint Account', institution: 'Up', country: 'AU', currency: 'AUD' as const, account_type: 'cash' as const, liquidity_class: 'liquid' as const },
   
   // Indonesia (IDR)
   { name: 'Permata', institution: 'Permata Bank', country: 'ID', currency: 'IDR' as const, account_type: 'cash' as const, liquidity_class: 'liquid' as const },
