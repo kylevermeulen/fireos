@@ -275,7 +275,7 @@ export function useBankImporter() {
 
       rows.push({
         date: parsedDate,
-        description: counterparty || description, // Prefer payee name (cleaner)
+        description: counterparty || description,
         amount,
         counterparty,
         matchedRule,
@@ -284,6 +284,9 @@ export function useBankImporter() {
         mappedL2: bankMapping?.l2 ?? null,
         isTransfer,
         isDuplicate: false,
+        dupeType: 'none',
+        dupeAccountName: null,
+        excluded: false,
         rawLine: lines[i],
       });
     }
