@@ -351,6 +351,8 @@ export default function Transactions() {
                 <Select value={dateFormat} onValueChange={v => setDateFormat(v as any)}>
                   <SelectTrigger><SelectValue /></SelectTrigger>
                   <SelectContent>
+                    <SelectItem value="auto">Auto-detect</SelectItem>
+                    <SelectItem value="iso">ISO 8601 (Up Bank)</SelectItem>
                     <SelectItem value="dd/mm/yyyy">DD/MM/YYYY</SelectItem>
                     <SelectItem value="yyyy-mm-dd">YYYY-MM-DD</SelectItem>
                     <SelectItem value="mm/dd/yyyy">MM/DD/YYYY</SelectItem>
