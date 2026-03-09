@@ -14,6 +14,9 @@ export interface ColumnMapping {
   balance?: number;        // Optional running balance (ignored for import)
   category?: number;       // Optional bank-provided category column
   transactionType?: number; // Optional bank transaction type (e.g. Transfer, Purchase)
+  direction?: number;      // Direction column (IN/OUT) — determines sign (e.g. Wise)
+  feeAmount?: number;      // Fee column to add to the source amount for total
+  sourceCurrency?: number; // Source currency column
 }
 
 export interface BankImportConfig {
