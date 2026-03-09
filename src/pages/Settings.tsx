@@ -19,6 +19,7 @@ import {
 } from '@/components/ui/alert-dialog';
 
 import { SnapshotImporter } from '@/components/settings/SnapshotImporter';
+import { BankImporter } from '@/components/cashflow/BankImporter';
 import { BalanceInputForm } from '@/components/settings/BalanceInputForm';
 import { DataStatusCard } from '@/components/settings/DataStatusCard';
 import { useAuth } from '@/hooks/useAuth';
