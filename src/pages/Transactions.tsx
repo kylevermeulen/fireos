@@ -244,7 +244,7 @@ export default function Transactions() {
       columnMapping,
       dateFormat,
       skipRows: 1,
-      invertSign: false,
+      invertSign,
     };
     const parsed = parseFile(csvContent, config, applyRules);
     const withDupes = await checkDuplicates(parsed, selectedAccountId);
