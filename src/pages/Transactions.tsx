@@ -82,6 +82,7 @@ export default function Transactions() {
   const [useSeparateDebitCredit, setUseSeparateDebitCredit] = useState(false);
   const [importStep, setImportStep] = useState<'idle' | 'map' | 'preview' | 'done'>('idle');
   const [dragActive, setDragActive] = useState(false);
+  const [invertSign, setInvertSign] = useState(false);
 
   const selectedAccount = accounts.find(a => a.id === selectedAccountId);
 
