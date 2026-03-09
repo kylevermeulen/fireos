@@ -89,12 +89,25 @@ export default function Transactions() {
   // ── Load data ──
   const loadTransactions = useCallback(async () => {
     setIsLoading(true);
-    const { data, error } = await supabase
-      .from('transactions')
-      .select('id, transaction_date, description, merchant, counterparty, amount_native, amount_aud, currency, l1_category, l2_category, is_internal_transfer, needs_review, source_account_name, transaction_type')
-      .order('transaction_date', { ascending: false })
-      .limit(5000);
-    if (!error && data) setTransactions(data as DbTransaction[]);
+    const PAGE_SIZE = 1000;
+    let allData: DbTransaction[] = [];
+    let from = 0;
+    let keepGoing = true;
+    while (keepGoing) {
+      const { data, error } = await supabase
+        .from('transactions')
+        .select('id, transaction_date, description, merchant, counterparty, amount_native, amount_aud, currency, l1_category, l2_category, is_internal_transfer, needs_review, source_account_name, transaction_type')
+        .order('transaction_date', { ascending: false })
+        .range(from, from + PAGE_SIZE - 1);
+      if (error || !data || data.length === 0) {
+        keepGoing = false;
+      } else {
+        allData = allData.concat(data as DbTransaction[]);
+        from += PAGE_SIZE;
+        if (data.length < PAGE_SIZE) keepGoing = false;
+      }
+    }
+    setTransactions(allData);
     setIsLoading(false);
   }, []);
 
