@@ -72,7 +72,7 @@ export default function Transactions() {
   const { parseFile, checkDuplicates, importRows, isImporting } = useBankImporter();
   const { rules, applyRules, seedRules, isSeeding, isLoading: rulesLoading } = useCategoryRules();
   const [selectedAccountId, setSelectedAccountId] = useState<string>('');
-  const [dateFormat, setDateFormat] = useState<BankImportConfig['dateFormat']>('dd/mm/yyyy');
+  const [dateFormat, setDateFormat] = useState<BankImportConfig['dateFormat']>('auto');
   const [pendingFiles, setPendingFiles] = useState<File[]>([]);
   const [csvContent, setCsvContent] = useState<string | null>(null);
   const [currentFileName, setCurrentFileName] = useState<string | null>(null);
