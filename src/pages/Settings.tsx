@@ -152,7 +152,10 @@ export default function Settings() {
         {/* Data Status Card */}
         <DataStatusCard />
 
-        {/* Snapshot Importer */}
+        {/* Bank Transaction Importer */}
+        <BankImporter />
+
+        {/* Snapshot Importer (legacy balance snapshots) */}
         <SnapshotImporter />
 
         {/* Balance Input Form */}
