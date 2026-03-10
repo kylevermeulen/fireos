@@ -88,14 +88,10 @@ export function TransactionsTable({
           return multiplier * (a.date.getTime() - b.date.getTime());
         case 'source_account':
           return multiplier * (a.source_account || '').localeCompare(b.source_account || '');
-        case 'counterparty':
-          return multiplier * (a.counterparty || '').localeCompare(b.counterparty || '');
         case 'amount_aud':
           return multiplier * (a.amount_aud - b.amount_aud);
         case 'L1':
           return multiplier * (a.L1 || '').localeCompare(b.L1 || '');
-        case 'L2':
-          return multiplier * (a.L2 || '').localeCompare(b.L2 || '');
         default:
           return 0;
       }
