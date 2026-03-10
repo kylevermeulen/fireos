@@ -179,6 +179,71 @@ const DEFAULT_RULES: Omit<CategoryRule, 'id'>[] = [
 
   // ── INVESTING ──
   { keyword: 'CoinJar', l1_category: 'Investing', l2_category: null, is_internal_transfer: false, needs_review: false, priority: 5 },
+
+  // ── FOOD DELIVERY & TAXI ──
+  { keyword: 'UBER EATS', l1_category: 'Food Delivery & Taxi', l2_category: null, is_internal_transfer: false, needs_review: false, priority: 10 },
+  { keyword: 'UBER *EATS', l1_category: 'Food Delivery & Taxi', l2_category: null, is_internal_transfer: false, needs_review: false, priority: 10 },
+  { keyword: 'UBER TRIP', l1_category: 'Food Delivery & Taxi', l2_category: null, is_internal_transfer: false, needs_review: false, priority: 8 },
+  { keyword: 'UBER *TRIP', l1_category: 'Food Delivery & Taxi', l2_category: null, is_internal_transfer: false, needs_review: false, priority: 8 },
+  { keyword: 'Gopay-Gojek', l1_category: 'Food Delivery & Taxi', l2_category: null, is_internal_transfer: false, needs_review: false, priority: 8 },
+  { keyword: 'DOORDASH', l1_category: 'Food Delivery & Taxi', l2_category: null, is_internal_transfer: false, needs_review: false, priority: 8 },
+  { keyword: 'LIME*RIDE', l1_category: 'Food Delivery & Taxi', l2_category: null, is_internal_transfer: false, needs_review: false, priority: 8 },
+
+  // ── FAMILY ──
+  { keyword: 'Monthly Spend', l1_category: 'Family', l2_category: 'Kids Pocket Money', is_internal_transfer: false, needs_review: false, priority: 10 },
+  { keyword: 'Ash Save', l1_category: 'Family', l2_category: 'Kids Pocket Money', is_internal_transfer: false, needs_review: false, priority: 10 },
+
+  // ── TRANSFER — INTERNAL ──
+  { keyword: 'Spending', l1_category: 'Transfer — Internal', l2_category: null, is_internal_transfer: true, needs_review: false, priority: 5 },
+  { keyword: 'KYLE CHRISTOPHER VER', l1_category: 'Transfer — Internal', l2_category: null, is_internal_transfer: true, needs_review: false, priority: 10 },
+  { keyword: 'Kyle Vermeulen', l1_category: 'Transfer — Internal', l2_category: null, is_internal_transfer: true, needs_review: false, priority: 10 },
+  { keyword: 'PT BANK PERMATA', l1_category: 'Transfer — Internal', l2_category: null, is_internal_transfer: true, needs_review: false, priority: 8 },
+
+  // ── TRAVEL ──
+  { keyword: 'VIRGIN AUSTRALIA', l1_category: 'Travel', l2_category: 'Flights', is_internal_transfer: false, needs_review: false, priority: 8 },
+  { keyword: 'UNITED AIRLINES', l1_category: 'Travel', l2_category: 'Flights', is_internal_transfer: false, needs_review: false, priority: 8 },
+  { keyword: 'ALASKA A', l1_category: 'Travel', l2_category: 'Flights', is_internal_transfer: false, needs_review: false, priority: 8 },
+  { keyword: 'GG VA Inflight', l1_category: 'Travel', l2_category: 'Flights', is_internal_transfer: false, needs_review: false, priority: 8 },
+
+  // ── SHOPPING ──
+  { keyword: 'AMAZON', l1_category: 'Shopping', l2_category: null, is_internal_transfer: false, needs_review: false, priority: 5 },
+  { keyword: 'THE ICONIC', l1_category: 'Shopping', l2_category: null, is_internal_transfer: false, needs_review: false, priority: 8 },
+  { keyword: 'ETSY', l1_category: 'Shopping', l2_category: null, is_internal_transfer: false, needs_review: false, priority: 5 },
+  { keyword: 'NORDSTROM', l1_category: 'Shopping', l2_category: null, is_internal_transfer: false, needs_review: false, priority: 5 },
+  { keyword: 'PATAGONIA', l1_category: 'Shopping', l2_category: null, is_internal_transfer: false, needs_review: false, priority: 5 },
+
+  // ── SUBSCRIPTIONS ──
+  { keyword: 'UBER ONE', l1_category: 'Subscriptions', l2_category: null, is_internal_transfer: false, needs_review: false, priority: 10 },
+  { keyword: 'NEW YORK TIMES', l1_category: 'Subscriptions', l2_category: null, is_internal_transfer: false, needs_review: false, priority: 8 },
+  { keyword: 'PATREON', l1_category: 'Subscriptions', l2_category: null, is_internal_transfer: false, needs_review: false, priority: 8 },
+  { keyword: 'DISNEY+', l1_category: 'Subscriptions', l2_category: null, is_internal_transfer: false, needs_review: false, priority: 8 },
+  { keyword: 'DISNEY PLUS', l1_category: 'Subscriptions', l2_category: null, is_internal_transfer: false, needs_review: false, priority: 8 },
+  { keyword: 'KINDLE', l1_category: 'Subscriptions', l2_category: null, is_internal_transfer: false, needs_review: false, priority: 8 },
+  { keyword: 'REDDIT', l1_category: 'Subscriptions', l2_category: null, is_internal_transfer: false, needs_review: false, priority: 8 },
+  { keyword: 'ENVATO', l1_category: 'Subscriptions', l2_category: null, is_internal_transfer: false, needs_review: false, priority: 8 },
+
+  // ── NTEGRITY ──
+  { keyword: 'LOVABLE', l1_category: 'Ntegrity', l2_category: null, is_internal_transfer: false, needs_review: false, priority: 8 },
+
+  // ── UTILITIES & BILLS ──
+  { keyword: 'POWERSHOP', l1_category: 'Utilities & Bills', l2_category: 'Australia Utility & Bill', is_internal_transfer: false, needs_review: false, priority: 8 },
+  { keyword: 'SOUTH EAST WATER', l1_category: 'Utilities & Bills', l2_category: 'Australia Utility & Bill', is_internal_transfer: false, needs_review: false, priority: 8 },
+  { keyword: 'TELSTRA', l1_category: 'Utilities & Bills', l2_category: 'Australia Utility & Bill', is_internal_transfer: false, needs_review: false, priority: 8 },
+
+  // ── RESTAURANTS, CAFES & BARS ──
+  { keyword: 'LIVIT HUB BALI', l1_category: 'Restaurants, Cafes & Bars', l2_category: null, is_internal_transfer: false, needs_review: false, priority: 8 },
+  { keyword: 'Bridge Road Brewers', l1_category: 'Restaurants, Cafes & Bars', l2_category: null, is_internal_transfer: false, needs_review: false, priority: 8 },
+  { keyword: 'COLONIAL BREWING', l1_category: 'Restaurants, Cafes & Bars', l2_category: null, is_internal_transfer: false, needs_review: false, priority: 8 },
+
+  // ── HEALTH & FITNESS ──
+  { keyword: 'CHEMIST WAREHOUSE', l1_category: 'Health & Fitness', l2_category: null, is_internal_transfer: false, needs_review: false, priority: 8 },
+  { keyword: 'IMAGING AT OLYMPIC', l1_category: 'Health & Fitness', l2_category: null, is_internal_transfer: false, needs_review: false, priority: 8 },
+
+  // ── ENTERTAINMENT ──
+  { keyword: 'TICKETMASTER', l1_category: 'Entertainment', l2_category: null, is_internal_transfer: false, needs_review: false, priority: 8 },
+
+  // ── TAXES & GOVT FEES ──
+  { keyword: 'International Transaction Fee', l1_category: 'Taxes & Govt Fees', l2_category: null, is_internal_transfer: false, needs_review: false, priority: 10 },
 ];
 
 export function useCategoryRules() {
