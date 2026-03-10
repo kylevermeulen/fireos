@@ -289,7 +289,7 @@ export default function Transactions() {
       skipRows: headerIndex + 1,
       invertSign,
     };
-    const parsed = parseFile(csvContent, config, applyRules);
+    const parsed = parseFile(csvContent, config, (text) => applyRules(text, rules));
     const withDupes = await checkDuplicates(parsed, selectedAccountId);
     setPreviewRows(withDupes);
     setImportStep('preview');
