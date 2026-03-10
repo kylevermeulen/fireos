@@ -252,7 +252,7 @@ export function useCategoryRules() {
   const [isLoading, setIsLoading] = useState(true);
   const [isSeeding, setIsSeeding] = useState(false);
 
-  const fetchRules = useCallback(async () => {
+  const fetchRules = useCallback(async (): Promise<CategoryRule[]> => {
     setIsLoading(true);
     try {
       const { data, error } = await supabase
@@ -260,9 +260,12 @@ export function useCategoryRules() {
         .select('*')
         .order('priority', { ascending: false });
       if (error) throw error;
-      setRules(data ?? []);
+      const fetched = (data ?? []) as CategoryRule[];
+      setRules(fetched);
+      return fetched;
     } catch (err) {
       console.error('Failed to fetch category rules:', err);
+      return [];
     } finally {
       setIsLoading(false);
     }
