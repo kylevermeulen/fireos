@@ -31,6 +31,7 @@ export interface BankImportConfig {
   dateFormat: 'dd/mm/yyyy' | 'yyyy-mm-dd' | 'mm/dd/yyyy' | 'dd-mm-yyyy' | 'iso' | 'auto';
   skipRows: number;        // Header rows to skip (default 1)
   invertSign: boolean;     // Some banks show expenses as positive
+  isPermata?: boolean;     // Detected Permata format (IDR currency)
 }
 
 export interface ImportPreviewRow {
