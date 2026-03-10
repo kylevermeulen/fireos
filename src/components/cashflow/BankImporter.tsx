@@ -111,7 +111,7 @@ export function BankImporter() {
         isPermata: pf.isPermata,
       };
 
-      const parsed = parseFile(pf.content, config, applyRules);
+      const parsed = parseFile(pf.content, config, (text) => applyRules(text, rules));
       allRows.push(...parsed);
     }
 
