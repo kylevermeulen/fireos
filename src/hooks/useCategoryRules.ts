@@ -173,12 +173,12 @@ const DEFAULT_RULES: Omit<CategoryRule, 'id'>[] = [
   { keyword: 'HORSHAM CAPITAL', l1_category: 'Professional Services', l2_category: null, is_internal_transfer: false, needs_review: false, priority: 5 },
   { keyword: 'TRF BIFAST KE VALLEN', l1_category: 'Professional Services', l2_category: null, is_internal_transfer: false, needs_review: false, priority: 10 },
 
-  // ── DONATIONS ──
-  { keyword: 'STROKE FOUNDATION', l1_category: 'Donations', l2_category: null, is_internal_transfer: false, needs_review: false, priority: 5 },
-  { keyword: 'OCRF', l1_category: 'Donations', l2_category: null, is_internal_transfer: false, needs_review: false, priority: 5 },
-  { keyword: 'DEMENTIA AUSTRALIA', l1_category: 'Donations', l2_category: null, is_internal_transfer: false, needs_review: false, priority: 5 },
-  { keyword: 'CANCER COUNCIL', l1_category: 'Donations', l2_category: null, is_internal_transfer: false, needs_review: false, priority: 5 },
-  { keyword: 'SP GREENFLEET', l1_category: 'Donations', l2_category: null, is_internal_transfer: false, needs_review: false, priority: 5 },
+  // ── GIFTS & DONATIONS ──
+  { keyword: 'STROKE FOUNDATION', l1_category: 'Gifts & Donations', l2_category: null, is_internal_transfer: false, needs_review: false, priority: 5 },
+  { keyword: 'OCRF', l1_category: 'Gifts & Donations', l2_category: null, is_internal_transfer: false, needs_review: false, priority: 5 },
+  { keyword: 'DEMENTIA AUSTRALIA', l1_category: 'Gifts & Donations', l2_category: null, is_internal_transfer: false, needs_review: false, priority: 5 },
+  { keyword: 'CANCER COUNCIL', l1_category: 'Gifts & Donations', l2_category: null, is_internal_transfer: false, needs_review: false, priority: 5 },
+  { keyword: 'SP GREENFLEET', l1_category: 'Gifts & Donations', l2_category: null, is_internal_transfer: false, needs_review: false, priority: 5 },
 
   // ── INVESTING ──
   { keyword: 'CoinJar', l1_category: 'Investing', l2_category: null, is_internal_transfer: false, needs_review: false, priority: 5 },
