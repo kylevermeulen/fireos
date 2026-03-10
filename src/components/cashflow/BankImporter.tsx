@@ -74,7 +74,7 @@ export function BankImporter() {
       fileName: fileName ?? 'unknown.csv',
       columnMapping,
       dateFormat,
-      skipRows: 1,
+      skipRows: headerIndex + 1,
       invertSign: false,
     };
 
