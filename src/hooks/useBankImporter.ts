@@ -18,6 +18,8 @@ export interface ColumnMapping {
   feeAmount?: number;      // Fee column to add to the source amount for total
   sourceCurrency?: number; // Source currency column
   signColumn?: number;     // Credit/Debit indicator column (e.g. Permata)
+  exchangeRate?: number;   // Exchange rate column (e.g. Wise)
+  expectedColumns?: number; // Expected number of columns (for anchoring from end)
 }
 
 export interface BankImportConfig {
