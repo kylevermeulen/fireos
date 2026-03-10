@@ -26,6 +26,8 @@ export const L1_DISPLAY_ORDER = [
   'Insurance',
   'Gifts & Donations',
   'Childcare & Nanny',
+  'Cleaner',
+  'Nanny',
   'Taxes & Govt Fees',
   'Professional Services',
   'Transfer — Internal',
