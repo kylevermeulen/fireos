@@ -585,7 +585,7 @@ export function useBankImporter() {
           account_id: config.accountId,
           transaction_date: row.date,
           amount_native: row.amount,
-          amount_aud: row.amount,
+          amount_aud: row.amountAud,
           currency: config.currency as 'AUD' | 'USD' | 'IDR',
           transaction_type: (isTransfer ? 'transfer' : isIncome ? 'income' : 'expense') as any,
           description: row.description,
