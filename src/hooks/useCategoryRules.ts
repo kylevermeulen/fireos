@@ -180,6 +180,20 @@ const DEFAULT_RULES: Omit<CategoryRule, 'id'>[] = [
   // ── INVESTING ──
   { keyword: 'CoinJar', l1_category: 'Investing', l2_category: null, is_internal_transfer: false, needs_review: false, priority: 5 },
 
+  // ── NEW RULES ──
+  { keyword: 'ZLR*', l1_category: 'Restaurants, Cafes & Bars', l2_category: null, is_internal_transfer: false, needs_review: false, priority: 5 },
+  { keyword: 'AMZNPRIME', l1_category: 'Subscriptions', l2_category: null, is_internal_transfer: false, needs_review: false, priority: 10 },
+  { keyword: 'CHATGPT', l1_category: 'Subscriptions', l2_category: null, is_internal_transfer: false, needs_review: false, priority: 8 },
+  { keyword: 'CHARGE FOR OVERDUE PAYMENT', l1_category: 'Taxes & Govt Fees', l2_category: null, is_internal_transfer: false, needs_review: false, priority: 10 },
+  { keyword: 'VIVEN AND CUPID', l1_category: 'Shopping', l2_category: null, is_internal_transfer: false, needs_review: false, priority: 5 },
+  { keyword: 'AEROXSPACE', l1_category: 'Shopping', l2_category: null, is_internal_transfer: false, needs_review: false, priority: 5 },
+  { keyword: 'RABBIT09 PTY LTD', l1_category: 'Restaurants, Cafes & Bars', l2_category: null, is_internal_transfer: false, needs_review: false, priority: 8 },
+  { keyword: 'LIQUORLAND', l1_category: 'Restaurants, Cafes & Bars', l2_category: null, is_internal_transfer: false, needs_review: false, priority: 5 },
+  { keyword: 'JL. DANAU TAMBL', l1_category: 'Restaurants, Cafes & Bars', l2_category: null, is_internal_transfer: false, needs_review: false, priority: 8 },
+  { keyword: 'DESTINATION BRISBANE', l1_category: 'Travel', l2_category: 'Accommodation', is_internal_transfer: false, needs_review: false, priority: 8 },
+  { keyword: 'W SYDNEY', l1_category: 'Travel', l2_category: 'Accommodation', is_internal_transfer: false, needs_review: false, priority: 8 },
+  { keyword: 'WASHINGTON STATE FERRI', l1_category: 'Travel', l2_category: null, is_internal_transfer: false, needs_review: false, priority: 8 },
+
   // ── FOOD DELIVERY & TAXI ──
   { keyword: 'UBER EATS', l1_category: 'Food Delivery & Taxi', l2_category: null, is_internal_transfer: false, needs_review: false, priority: 10 },
   { keyword: 'UBER *EATS', l1_category: 'Food Delivery & Taxi', l2_category: null, is_internal_transfer: false, needs_review: false, priority: 10 },
