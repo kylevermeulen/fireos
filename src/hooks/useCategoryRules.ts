@@ -307,14 +307,15 @@ export function useCategoryRules() {
    * Apply rules to a description string. Returns the best matching rule
    * (longest keyword match with highest priority wins).
    */
-  const applyRules = useCallback((description: string): CategoryRule | null => {
-    if (!description || rules.length === 0) return null;
+  const applyRules = useCallback((description: string, overrideRules?: CategoryRule[]): CategoryRule | null => {
+    const rulesToUse = overrideRules ?? rules;
+    if (!description || rulesToUse.length === 0) return null;
 
     const upper = description.toUpperCase();
     let bestMatch: CategoryRule | null = null;
     let bestLen = 0;
 
-    for (const rule of rules) {
+    for (const rule of rulesToUse) {
       const kw = rule.keyword.toUpperCase();
       if (upper.includes(kw)) {
         // Prefer longer keywords, then higher priority
