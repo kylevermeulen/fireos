@@ -264,8 +264,11 @@ export function autoDetectColumns(headers: string[]): { mapping: ColumnMapping; 
   const amountIdx = findCol(headers, ['amount', 'value']);
   mapping.amount = subtotalIdx !== -1 ? subtotalIdx : (totalIdx !== -1 ? totalIdx : (amountIdx !== -1 ? amountIdx : 2));
 
+  // Credit/Debit sign indicator column (e.g. Permata: "Credit/Debit")
+  const signIdx = findCol(headers, ['credit/debit', 'credit debit', 'cr/dr']);
+  if (signIdx !== -1) mapping.signColumn = signIdx;
+
   // Debit/Credit (separate numeric columns — NOT a sign indicator like "Credit/Debit")
-  // Only match if they are distinct columns (not the same "Credit/Debit" column)
   const debitIdx = findCol(headers, ['debit']);
   const creditIdx = findCol(headers, ['credit']);
   if (debitIdx !== -1 && creditIdx !== -1 && debitIdx !== creditIdx && debitIdx !== signIdx && creditIdx !== signIdx) {
@@ -273,10 +276,6 @@ export function autoDetectColumns(headers: string[]): { mapping: ColumnMapping; 
     mapping.credit = creditIdx;
     hasDebitCredit = true;
   }
-
-  // Credit/Debit sign indicator column (e.g. Permata: "Credit/Debit")
-  const signIdx = findCol(headers, ['credit/debit', 'credit debit', 'cr/dr']);
-  if (signIdx !== -1) mapping.signColumn = signIdx;
 
   // Counterparty / Payee
   const payeeIdx = findCol(headers, ['payee', 'counterparty', 'merchant', 'beneficiary']);
