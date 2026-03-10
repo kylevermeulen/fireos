@@ -320,7 +320,7 @@ export default function Settings() {
                       totalRows += batch.length;
 
                       for (const tx of batch) {
-                        const text = tx.description || tx.merchant || tx.counterparty || '';
+                        const text = `${tx.counterparty ?? ''} ${tx.description ?? ''}`.replace(/\s+/g, ' ').trim();
                         const match = applyRules(text);
                         if (match) {
                           const { error: updateErr } = await supabase
