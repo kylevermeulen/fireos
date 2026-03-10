@@ -71,6 +71,13 @@ export function SankeyDiagram({
   const [hoveredNode, setHoveredNode] = useState<string | null>(null);
 
   const spendingData = drilldownCategory ? (spendingByL2 || []) : spendingByL1;
+
+  // Build lookup for correct income amounts per category
+  const incomeTotalMap = useMemo(() => {
+    const map = new Map<string, number>();
+    incomeByCategory.forEach(item => map.set(item.category, item.total));
+    return map;
+  }, [incomeByCategory]);
   
   // Dynamic height based on category count
   const chartHeight = useMemo(() => 
