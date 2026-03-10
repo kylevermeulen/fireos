@@ -566,6 +566,7 @@ export type Database = {
           currency: Database["public"]["Enums"]["currency_code"]
           description: string | null
           id: string
+          is_amortised_source: boolean
           is_internal_transfer: boolean
           is_synthetic: boolean
           l1_category: string | null
@@ -590,6 +591,7 @@ export type Database = {
           currency?: Database["public"]["Enums"]["currency_code"]
           description?: string | null
           id?: string
+          is_amortised_source?: boolean
           is_internal_transfer?: boolean
           is_synthetic?: boolean
           l1_category?: string | null
@@ -614,6 +616,7 @@ export type Database = {
           currency?: Database["public"]["Enums"]["currency_code"]
           description?: string | null
           id?: string
+          is_amortised_source?: boolean
           is_internal_transfer?: boolean
           is_synthetic?: boolean
           l1_category?: string | null
