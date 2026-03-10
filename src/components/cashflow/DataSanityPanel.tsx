@@ -33,7 +33,7 @@ export function DataSanityPanel({ stats, mode }: DataSanityPanelProps) {
             <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
               <div className="space-y-1">
                 <p className="text-muted-foreground text-xs">Mode</p>
-                <p className="font-medium capitalize">{mode}</p>
+                <p className="font-medium capitalize">{mode === 'accrual' ? 'Accrual' : 'Cash'}</p>
               </div>
               <div className="space-y-1">
                 <p className="text-muted-foreground text-xs">Total Income (AUD)</p>

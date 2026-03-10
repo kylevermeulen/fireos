@@ -4,7 +4,8 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { X, ArrowUp, ArrowDown, ArrowUpDown, Download } from 'lucide-react';
+import { X, ArrowUp, ArrowDown, ArrowUpDown, Download, CalendarDays } from 'lucide-react';
+import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { formatCompactCurrency } from '@/lib/format';
 import { CashflowTransaction } from '@/types/cashflow';
 import { CategoryBadge } from '@/components/transactions/CategoryBadge';
@@ -220,7 +221,19 @@ export function TransactionsTable({
                       onClick={() => setSelectedTx(tx)}
                     >
                       <TableCell className={cn('text-xs whitespace-nowrap', isTransfer && 'text-muted-foreground')}>
-                        {format(tx.date, 'MMM d, yyyy')}
+                        <span className="flex items-center gap-1">
+                          {format(tx.date, 'MMM d, yyyy')}
+                          {tx.effective_date && (
+                            <Tooltip>
+                              <TooltipTrigger asChild>
+                                <CalendarDays className="h-3 w-3 text-muted-foreground/50" />
+                              </TooltipTrigger>
+                              <TooltipContent side="top" className="text-xs">
+                                Accrual date set to {format(tx.effective_date, 'MMM d, yyyy')}
+                              </TooltipContent>
+                            </Tooltip>
+                          )}
+                        </span>
                       </TableCell>
                       <TableCell className={cn('text-xs', isTransfer && 'text-muted-foreground')}>
                         {tx.source_account}
@@ -272,7 +285,8 @@ export function TransactionsTable({
       <TransactionDetailModal
         transaction={selectedTx ? {
           id: selectedTx.id,
-          transaction_date: format(selectedTx.date, 'yyyy-MM-dd'),
+          transaction_date: format(selectedTx.transaction_date, 'yyyy-MM-dd'),
+          effective_date: selectedTx.effective_date ? format(selectedTx.effective_date, 'yyyy-MM-dd') : null,
           description: selectedTx.description,
           counterparty: selectedTx.counterparty,
           amount_native: selectedTx.amount_native,

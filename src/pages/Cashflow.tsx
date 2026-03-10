@@ -18,7 +18,7 @@ import { CashflowMode, CategoryTotal } from '@/types/cashflow';
 import { useGlobalTimeRange } from '@/contexts/TimeRangeContext';
 
 export default function Cashflow() {
-  const [mode, setMode] = useState<CashflowMode>('amortised');
+  const [mode, setMode] = useState<CashflowMode>('accrual');
   const { effectiveDateRange } = useGlobalTimeRange();
   const { rawTransactions, isLoading, error, reload, updateTransaction } = useCashflowData(mode);
   

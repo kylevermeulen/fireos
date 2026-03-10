@@ -1,10 +1,14 @@
 // Cashflow transaction types based on uploaded CSV structure
 
-export type CashflowMode = 'amortised' | 'cashflow';
+export type CashflowMode = 'accrual' | 'cash';
 
 export interface CashflowTransaction {
   id: string;
   date: Date;
+  /** Original transaction_date, always preserved */
+  transaction_date: Date;
+  /** If effective_date was set, stored here */
+  effective_date: Date | null;
   source_account: string;
   counterparty: string;
   description: string;
