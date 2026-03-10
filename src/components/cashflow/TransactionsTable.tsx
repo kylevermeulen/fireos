@@ -66,6 +66,7 @@ export function TransactionsTable({
   title, 
   onClearFilter,
   showClearFilter = false,
+  onTransactionUpdated,
 }: TransactionsTableProps) {
   const [sortState, setSortState] = useState<SortState>({ field: 'amount_aud', direction: 'desc' });
   const [visibleCount, setVisibleCount] = useState(PAGE_SIZE);
