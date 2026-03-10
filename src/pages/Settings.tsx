@@ -311,9 +311,9 @@ export default function Settings() {
                      while (true) {
                        const { data: batch, error } = await supabase
                          .from('transactions')
-                         .select('id, description, merchant, counterparty')
+                         .select('id, description, merchant, counterparty, l1_category')
                          .eq('user_id', user.id)
-                         .eq('l1_category', 'Uncategorised')
+                         .or('l1_category.eq.Uncategorised,l1_category.is.null')
                          .range(from, from + BATCH - 1);
                        if (error) throw error;
                        if (!batch || batch.length === 0) break;
@@ -321,23 +321,31 @@ export default function Settings() {
                        totalRows += batch.length;
                        console.log(`[Re-apply] Batch from=${from}, rows=${batch.length}`);
 
+                       // Log first 3 rows of first batch for diagnosis
+                       if (from === 0) {
+                         for (const sample of batch.slice(0, 3)) {
+                           console.log('[Re-apply] Sample row:', { id: sample.id, counterparty: sample.counterparty, description: sample.description, l1: sample.l1_category });
+                         }
+                       }
+
                        for (const tx of batch) {
-                         const text = `${tx.counterparty ?? ''} ${tx.description ?? ''}`.replace(/\s+/g, ' ').trim();
+                         const text = [tx.counterparty, tx.description].filter(Boolean).join(' ').replace(/\s+/g, ' ').trim();
                          const match = applyRules(text, freshRules);
-                        if (match) {
-                          const { error: updateErr } = await supabase
-                            .from('transactions')
-                            .update({
-                              l1_category: match.l1_category,
-                              l2_category: match.l2_category,
-                              is_internal_transfer: match.is_internal_transfer,
-                              needs_review: match.needs_review,
-                            })
-                            .eq('id', tx.id);
-                          if (updateErr) throw updateErr;
-                          matchCount++;
-                        }
-                      }
+                         if (match) {
+                           console.log(`[Re-apply] Match: "${match.keyword}" → ${match.l1_category} | tx=${tx.id} | text="${text.substring(0, 60)}"`);
+                           const { error: updateErr } = await supabase
+                             .from('transactions')
+                             .update({
+                               l1_category: match.l1_category,
+                               l2_category: match.l2_category,
+                               is_internal_transfer: match.is_internal_transfer,
+                               needs_review: match.needs_review,
+                             })
+                             .eq('id', tx.id);
+                           if (updateErr) throw updateErr;
+                           matchCount++;
+                         }
+                       }
 
                       if (batch.length < BATCH) break;
                       from += BATCH;
