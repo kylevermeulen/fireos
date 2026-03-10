@@ -746,10 +746,9 @@ export default function Transactions() {
                         <SortableHeader field="account">Account</SortableHeader>
                         <SortableHeader field="description">Description</SortableHeader>
                         <SortableHeader field="amount" className="text-right">Amount</SortableHeader>
-                        <SortableHeader field="l1">Category</SortableHeader>
-                        <TableHead className="sticky top-0 bg-background w-16">Flags</TableHead>
-                      </TableRow>
-                    </TableHeader>
+                         <SortableHeader field="l1">Category</SortableHeader>
+                       </TableRow>
+                     </TableHeader>
                     <TableBody>
                       {visible.map(t => (
                         <TableRow key={t.id} className={t.needs_review ? 'bg-orange-500/5' : ''}>
