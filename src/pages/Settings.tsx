@@ -203,6 +203,145 @@ export default function Settings() {
           </CardContent>
         </Card>
 
+        {/* Data Migration */}
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Database className="h-5 w-5" />
+              Data Migration
+            </CardTitle>
+            <CardDescription>Remap legacy category names to the standardised taxonomy</CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            {isMigrating && <Progress value={migrationProgress} className="h-2" />}
+            <div className="flex flex-wrap gap-3">
+              <Button
+                variant="secondary"
+                disabled={!user || isMigrating || isRecategorising}
+                onClick={async () => {
+                  if (!user) return;
+                  setIsMigrating(true);
+                  setMigrationProgress(0);
+                  let totalUpdated = 0;
+
+                  const migrations: { l1: string; l2: string | null; filter: { l1?: string; l1_in?: string[]; l2?: string | null; l2_in?: string[]; l1_is_null?: boolean } }[] = [
+                    { l1: 'Restaurants, Cafes & Bars', l2: null, filter: { l1: 'Living Expenses', l2: 'Eating Out' } },
+                    { l1: 'Groceries', l2: null, filter: { l1: 'Living Expenses', l2: 'Groceries' } },
+                    { l1: 'Utilities & Bills', l2: 'Australia Utility & Bill', filter: { l1: 'Living Expenses', l2_in: ['Internet', 'Phone'] } },
+                    { l1: 'Food Delivery & Taxi', l2: null, filter: { l1: 'Transport' } },
+                    { l1: 'Entertainment', l2: null, filter: { l1: 'Lifestyle', l2_in: ['Entertainment', 'Books & Media'] } },
+                    { l1: 'Travel', l2: null, filter: { l1: 'Lifestyle', l2: 'Travel' } },
+                    { l1: 'Shopping', l2: null, filter: { l1: 'Lifestyle', l2: 'Clothing' } },
+                    { l1: 'Health & Fitness', l2: null, filter: { l1: 'Lifestyle', l2: 'Health & Fitness' } },
+                    { l1: 'Personal Care', l2: null, filter: { l1: 'Lifestyle', l2: 'Personal Care' } },
+                    { l1: 'Family', l2: null, filter: { l1: 'Lifestyle', l2: 'Gifts' } },
+                    { l1: 'Household', l2: 'Homewares', filter: { l1: 'Housing', l2: 'Homewares' } },
+                    { l1: 'Health & Fitness', l2: null, filter: { l1_in: ['Health', 'Health & Fitness'] } },
+                    { l1: 'Mortgage', l2: 'Interest', filter: { l1: 'Mortgage', l2: 'Interest' } },
+                    { l1: 'Rent', l2: 'Bali Rent', filter: { l1: 'Indonesia Rent' } },
+                    { l1: 'Restaurants, Cafes & Bars', l2: null, filter: { l1: 'Indonesia Food & Transport', l2: 'Dining' } },
+                    { l1: 'Food Delivery & Taxi', l2: null, filter: { l1: 'Indonesia Food & Transport', l2: 'Grab' } },
+                    { l1: 'Groceries', l2: null, filter: { l1: 'Indonesia Food & Transport', l2: 'Groceries' } },
+                    { l1: 'Indonesia — Uncategorised', l2: null, filter: { l1: 'Indonesia Food & Transport' } },
+                    { l1: 'Shopping', l2: null, filter: { l1: 'Australia Expenses', l2: 'Shopping' } },
+                    { l1: 'Food Delivery & Taxi', l2: null, filter: { l1: 'Australia Expenses', l2: 'Fuel-Transport' } },
+                    { l1: 'Restaurants, Cafes & Bars', l2: null, filter: { l1: 'Australia Expenses', l2: 'Dining' } },
+                    { l1: 'Household', l2: null, filter: { l1: 'Australia Expenses', l2: 'Household' } },
+                    { l1: 'Health & Fitness', l2: null, filter: { l1: 'Australia Expenses', l2: 'Health' } },
+                    { l1: 'Family', l2: null, filter: { l1: 'Australia Expenses', l2: 'Kids' } },
+                    { l1: 'Groceries', l2: null, filter: { l1: 'Australia Expenses', l2: 'Groceries' } },
+                    { l1: 'Australia — Uncategorised', l2: null, filter: { l1: 'Australia Expenses' } },
+                    { l1: 'Utilities & Bills', l2: 'Indonesia Utility & Bills', filter: { l1: 'Indonesia Bills (Lisa)' } },
+                    { l1: 'Travel', l2: 'Accommodation', filter: { l1: 'Travel', l2: 'Accommodation' } },
+                    { l1: 'Travel', l2: 'Flights', filter: { l1: 'Travel', l2: 'Flights' } },
+                    { l1: 'Travel', l2: null, filter: { l1: 'Travel', l2: 'Other' } },
+                    { l1: 'Uncategorised', l2: null, filter: { l1_in: ['Unknown', 'Uncategorised'] } },
+                    { l1: 'Uncategorised', l2: null, filter: { l1_is_null: true } },
+                  ];
+
+                  try {
+                    for (let i = 0; i < migrations.length; i++) {
+                      const m = migrations[i];
+                      let query = supabase
+                        .from('transactions')
+                        .update({ l1_category: m.l1, l2_category: m.l2 })
+                        .eq('user_id', user.id);
+
+                      if (m.filter.l1) query = query.eq('l1_category', m.filter.l1);
+                      if (m.filter.l1_in) query = query.in('l1_category', m.filter.l1_in);
+                      if (m.filter.l2) query = query.eq('l2_category', m.filter.l2);
+                      if (m.filter.l2_in) query = query.in('l2_category', m.filter.l2_in);
+                      if (m.filter.l1_is_null) query = query.is('l1_category', null);
+                      // For filters with l1 but no l2 constraint and no l2_in, it's a catch-all for that l1
+
+                      const { data, error } = await query.select('id');
+                      if (error) throw error;
+                      totalUpdated += (data?.length ?? 0);
+                      setMigrationProgress(Math.round(((i + 1) / migrations.length) * 100));
+                    }
+
+                    toast({ title: 'Migration complete', description: `${totalUpdated} rows updated` });
+                  } catch (err) {
+                    toast({ title: 'Migration failed', description: err instanceof Error ? err.message : 'Unknown error', variant: 'destructive' });
+                  } finally {
+                    setIsMigrating(false);
+                  }
+                }}
+              >
+                <Database className="mr-2 h-4 w-4" />
+                {isMigrating ? 'Migrating…' : 'Remap Legacy Categories'}
+              </Button>
+
+              <Button
+                variant="secondary"
+                disabled={!user || isMigrating || isRecategorising}
+                onClick={async () => {
+                  if (!user) return;
+                  setIsRecategorising(true);
+                  await fetchRules();
+
+                  try {
+                    const { data: uncategorised, error } = await supabase
+                      .from('transactions')
+                      .select('id, description, merchant, counterparty')
+                      .eq('user_id', user.id)
+                      .eq('l1_category', 'Uncategorised');
+                    if (error) throw error;
+
+                    let count = 0;
+                    for (const tx of uncategorised ?? []) {
+                      const text = tx.description || tx.merchant || tx.counterparty || '';
+                      const match = applyRules(text);
+                      if (match) {
+                        const { error: updateErr } = await supabase
+                          .from('transactions')
+                          .update({
+                            l1_category: match.l1_category,
+                            l2_category: match.l2_category,
+                            is_internal_transfer: match.is_internal_transfer,
+                            needs_review: match.needs_review,
+                          })
+                          .eq('id', tx.id);
+                        if (updateErr) throw updateErr;
+                        count++;
+                      }
+                    }
+
+                    toast({ title: 'Re-categorisation complete', description: `${count} of ${uncategorised?.length ?? 0} transactions matched` });
+                  } catch (err) {
+                    toast({ title: 'Re-categorisation failed', description: err instanceof Error ? err.message : 'Unknown error', variant: 'destructive' });
+                  } finally {
+                    setIsRecategorising(false);
+                  }
+                }}
+              >
+                <RotateCcw className="mr-2 h-4 w-4" />
+                {isRecategorising ? 'Processing…' : 'Re-apply Rules to Uncategorised'}
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
+
         <Card>
           <CardHeader>
             <CardTitle>Refresh Prices</CardTitle>
