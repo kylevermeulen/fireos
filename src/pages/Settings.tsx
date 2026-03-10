@@ -301,30 +301,44 @@ export default function Settings() {
                   await fetchRules();
 
                   try {
-                    const { data: uncategorised, error } = await supabase
-                      .from('transactions')
-                      .select('id, description, merchant, counterparty')
-                      .eq('user_id', user.id)
-                      .eq('l1_category', 'Uncategorised');
-                    if (error) throw error;
+                    // Paginate through ALL uncategorised transactions
+                    const BATCH = 1000;
+                    let from = 0;
+                    let totalRows = 0;
+                    let matchCount = 0;
 
-                    let count = 0;
-                    for (const tx of uncategorised ?? []) {
-                      const text = tx.description || tx.merchant || tx.counterparty || '';
-                      const match = applyRules(text);
-                      if (match) {
-                        const { error: updateErr } = await supabase
-                          .from('transactions')
-                          .update({
-                            l1_category: match.l1_category,
-                            l2_category: match.l2_category,
-                            is_internal_transfer: match.is_internal_transfer,
-                            needs_review: match.needs_review,
-                          })
-                          .eq('id', tx.id);
-                        if (updateErr) throw updateErr;
-                        count++;
+                    while (true) {
+                      const { data: batch, error } = await supabase
+                        .from('transactions')
+                        .select('id, description, merchant, counterparty')
+                        .eq('user_id', user.id)
+                        .eq('l1_category', 'Uncategorised')
+                        .range(from, from + BATCH - 1);
+                      if (error) throw error;
+                      if (!batch || batch.length === 0) break;
+
+                      totalRows += batch.length;
+
+                      for (const tx of batch) {
+                        const text = tx.description || tx.merchant || tx.counterparty || '';
+                        const match = applyRules(text);
+                        if (match) {
+                          const { error: updateErr } = await supabase
+                            .from('transactions')
+                            .update({
+                              l1_category: match.l1_category,
+                              l2_category: match.l2_category,
+                              is_internal_transfer: match.is_internal_transfer,
+                              needs_review: match.needs_review,
+                            })
+                            .eq('id', tx.id);
+                          if (updateErr) throw updateErr;
+                          matchCount++;
+                        }
                       }
+
+                      if (batch.length < BATCH) break;
+                      from += BATCH;
                     }
 
                     toast({ title: 'Re-categorisation complete', description: `${count} of ${uncategorised?.length ?? 0} transactions matched` });
