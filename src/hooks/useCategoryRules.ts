@@ -289,7 +289,6 @@ export function useCategoryRules() {
           .upsert(batch, { onConflict: 'user_id,keyword' });
         if (error) throw error;
       }
-      if (error) throw error;
 
       toast({ title: 'Category rules seeded', description: `${toInsert.length} rules created/updated` });
       await fetchRules();
