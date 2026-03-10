@@ -17,16 +17,16 @@ export function CashflowModeToggle({ mode, onChange }: CashflowModeToggleProps) 
         className="bg-muted/50 rounded-lg p-1"
       >
         <ToggleGroupItem 
-          value="amortised" 
+          value="accrual" 
           className="text-xs data-[state=on]:bg-background data-[state=on]:shadow-sm px-3"
         >
-          Amortised
+          Accrual
         </ToggleGroupItem>
         <ToggleGroupItem 
-          value="cashflow" 
+          value="cash" 
           className="text-xs data-[state=on]:bg-background data-[state=on]:shadow-sm px-3"
         >
-          Cashflow
+          Cash
         </ToggleGroupItem>
       </ToggleGroup>
     </div>

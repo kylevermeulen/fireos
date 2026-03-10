@@ -16,15 +16,15 @@ async function fetchAllTransactions(userId: string, mode: CashflowMode): Promise
   while (true) {
     let query = supabase
       .from('transactions')
-      .select('id, transaction_date, source_account_name, counterparty, description, amount_native, currency, amount_aud, transaction_type, is_internal_transfer, l1_category, l2_category, is_synthetic')
+      .select('id, transaction_date, effective_date, source_account_name, counterparty, description, amount_native, currency, amount_aud, transaction_type, is_internal_transfer, l1_category, l2_category, is_synthetic')
       .eq('user_id', userId)
       .range(from, from + BATCH - 1);
 
-    if (mode === 'cashflow') {
-      // Actual mode: show real lump-sum payments, hide synthetic
+    if (mode === 'cash') {
+      // Cash mode: show real lump-sum payments, hide synthetic
       query = query.eq('is_synthetic', false);
     } else {
-      // Amortised mode: show synthetic monthly rows, hide lump-sum sources
+      // Accrual mode: show synthetic monthly rows, hide lump-sum sources
       query = query.eq('is_amortised_source', false);
     }
 
@@ -33,8 +33,13 @@ async function fetchAllTransactions(userId: string, mode: CashflowMode): Promise
     if (!data || data.length === 0) break;
 
     for (const row of data) {
-      const date = new Date(row.transaction_date);
-      if (isNaN(date.getTime())) continue;
+      const txDate = new Date(row.transaction_date);
+      if (isNaN(txDate.getTime())) continue;
+
+      const effectiveDate = row.effective_date ? new Date(row.effective_date) : null;
+      
+      // In accrual mode, use effective_date if set; in cash mode always use transaction_date
+      const displayDate = mode === 'accrual' && effectiveDate ? effectiveDate : txDate;
 
       const amountAud = Number(row.amount_aud) || 0;
       const direction: 'in' | 'out' = 
@@ -44,7 +49,9 @@ async function fetchAllTransactions(userId: string, mode: CashflowMode): Promise
 
       all.push({
         id: row.id,
-        date,
+        date: displayDate,
+        transaction_date: txDate,
+        effective_date: effectiveDate,
         source_account: row.source_account_name || '',
         counterparty: row.counterparty || '',
         description: row.description || '',
@@ -65,7 +72,7 @@ async function fetchAllTransactions(userId: string, mode: CashflowMode): Promise
   return all;
 }
 
-export function useCashflowData(mode: CashflowMode = 'amortised') {
+export function useCashflowData(mode: CashflowMode = 'accrual') {
   const [rawTransactions, setRawTransactions] = useState<CashflowTransaction[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
