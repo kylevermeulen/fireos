@@ -120,7 +120,11 @@ export function useFilteredCashflow(
   );
   
   const spending = useMemo(() => 
-    filtered.filter(tx => tx.direction === 'out' && !tx.is_internal_transfer), 
+    filtered.filter(tx => 
+      tx.direction === 'out' && 
+      !tx.is_internal_transfer && 
+      tx.L1 !== 'Transfer — Internal'
+    ), 
     [filtered]
   );
 
