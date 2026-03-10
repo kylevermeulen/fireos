@@ -428,14 +428,23 @@ export function useBankImporter() {
 
       // Convert to AUD: if source currency is not AUD/USD, use exchange rate
       let amountAud = amount;
+      const IDR_FALLBACK_RATE = 10900; // Approximate 2025 rate: 10,900 IDR = 1 AUD
+
       if (sourceCurrency && sourceCurrency !== 'AUD') {
         if (sourceCurrency === 'IDR' && exchangeRate && exchangeRate > 0) {
           // IDR → AUD: divide by exchange rate (rate is IDR per 1 AUD)
           amountAud = amount / exchangeRate;
+        } else if (sourceCurrency === 'IDR') {
+          amountAud = Math.round((amount / IDR_FALLBACK_RATE) * 100) / 100;
         } else if (sourceCurrency === 'USD') {
           // USD amounts stored as-is, conversion happens elsewhere
           amountAud = amount;
         }
+      }
+
+      // Permata: always IDR, use fallback rate
+      if (config.isPermata && !sourceCurrency) {
+        amountAud = Math.round((amount / IDR_FALLBACK_RATE) * 100) / 100;
       }
 
       // Detect internal transfers from bank tx type
