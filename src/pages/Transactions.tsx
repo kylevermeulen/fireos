@@ -163,6 +163,14 @@ export default function Transactions() {
     ));
   }, []);
 
+  const handleBulkUpdate = useCallback((ids: string[], newL1: string, isTransfer: boolean) => {
+    setTransactions(prev => prev.map(t =>
+      ids.includes(t.id)
+        ? { ...t, l1_category: newL1, l2_category: null, is_internal_transfer: isTransfer }
+        : t
+    ));
+  }, []);
+
   const filtered = useMemo(() => {
     return transactions.filter(t => {
       if (accountFilter !== 'all' && t.source_account_name !== accountFilter) return false;
