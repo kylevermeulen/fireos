@@ -316,7 +316,7 @@ export default function Transactions() {
     for (let i = 1; i < pendingFiles.length; i++) {
       const file = pendingFiles[i];
       const content = await file.text();
-      const parsed = parseFile(content, { ...config, fileName: file.name }, applyRules);
+      const parsed = parseFile(content, { ...config, fileName: file.name }, (text) => applyRules(text, rules));
       const withDupes = await checkDuplicates(parsed, selectedAccountId);
       await importRows(withDupes, { ...config, fileName: file.name });
     }
