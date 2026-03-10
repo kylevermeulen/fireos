@@ -7,7 +7,7 @@ import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Upload, Check, AlertTriangle, FileSpreadsheet, Tag } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
-import { useBankImporter, autoDetectColumns, BankImportConfig, ImportPreviewRow, ColumnMapping } from '@/hooks/useBankImporter';
+import { useBankImporter, autoDetectColumns, findHeaderRow, BankImportConfig, ImportPreviewRow, ColumnMapping } from '@/hooks/useBankImporter';
 import { useCategoryRules } from '@/hooks/useCategoryRules';
 import { formatCompactCurrency } from '@/lib/format';
 
