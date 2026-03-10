@@ -329,7 +329,23 @@ export function useBankImporter() {
     }
 
     for (let i = config.skipRows; i < lines.length; i++) {
-      const cells = parseCsvLine(lines[i]);
+      let cells = parseCsvLine(lines[i]);
+
+      // Permata fix: description may contain commas, causing extra cells.
+      // Anchor amount and sign columns from the END of the row.
+      const expected = config.columnMapping.expectedColumns;
+      if (expected != null && cells.length > expected) {
+        // The extra cells are from commas in the description.
+        // Merge the overflow cells back into the description column (index 1).
+        const overflow = cells.length - expected;
+        const descParts = cells.slice(1, 1 + overflow + 1);
+        cells = [
+          cells[0],
+          descParts.join(', '),
+          ...cells.slice(1 + overflow + 1),
+        ];
+      }
+
       const dateStr = cells[config.columnMapping.date] ?? '';
       const description = cells[config.columnMapping.description] ?? '';
       const counterparty = config.columnMapping.counterparty != null
@@ -357,6 +373,8 @@ export function useBankImporter() {
       }
 
       // If direction column exists (Wise format), use it to determine sign
+      let sourceCurrency = '';
+      let exchangeRate: number | null = null;
       if (config.columnMapping.direction != null && amount != null) {
         const direction = (cells[config.columnMapping.direction] ?? '').toUpperCase().trim();
         // Add fee back to get full source amount
@@ -366,8 +384,15 @@ export function useBankImporter() {
         }
         amount = Math.abs(amount);
         if (direction === 'OUT') amount = -amount;
-        // NEUTRAL direction (e.g. currency conversion) — treat as outflow
         if (direction === 'NEUTRAL') amount = -amount;
+
+        // Capture source currency and exchange rate for AUD conversion
+        if (config.columnMapping.sourceCurrency != null) {
+          sourceCurrency = (cells[config.columnMapping.sourceCurrency] ?? '').toUpperCase().trim();
+        }
+        if (config.columnMapping.exchangeRate != null) {
+          exchangeRate = parseAmount(cells[config.columnMapping.exchangeRate] ?? '');
+        }
       }
 
       // If sign column exists (Permata format: "Credit/Debit"), use it to determine sign
@@ -381,6 +406,18 @@ export function useBankImporter() {
 
       const parsedDate = parseDate(dateStr, dateFormat);
       if (!parsedDate || amount == null) continue;
+
+      // Convert to AUD: if source currency is not AUD/USD, use exchange rate
+      let amountAud = amount;
+      if (sourceCurrency && sourceCurrency !== 'AUD') {
+        if (sourceCurrency === 'IDR' && exchangeRate && exchangeRate > 0) {
+          // IDR → AUD: divide by exchange rate (rate is IDR per 1 AUD)
+          amountAud = amount / exchangeRate;
+        } else if (sourceCurrency === 'USD') {
+          // USD amounts stored as-is, conversion happens elsewhere
+          amountAud = amount;
+        }
+      }
 
       // Detect internal transfers from bank tx type
       const isTransfer = bankTxType.toLowerCase() === 'transfer';
@@ -396,6 +433,7 @@ export function useBankImporter() {
         date: parsedDate,
         description: counterparty || description,
         amount,
+        amountAud,
         counterparty,
         matchedRule,
         bankCategory,
