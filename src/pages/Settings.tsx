@@ -343,7 +343,8 @@ export default function Settings() {
                       from += BATCH;
                     }
 
-                    toast({ title: 'Re-categorisation complete', description: `Re-categorised ${matchCount} of ${totalRows} transactions` });
+                     console.log(`[Re-apply] Done: matched ${matchCount} of ${totalRows} total uncategorised`);
+                     toast({ title: 'Re-categorisation complete', description: `Re-categorised ${matchCount} of ${totalRows} transactions` });
                   } catch (err) {
                     toast({ title: 'Re-categorisation failed', description: err instanceof Error ? err.message : 'Unknown error', variant: 'destructive' });
                   } finally {
