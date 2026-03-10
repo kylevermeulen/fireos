@@ -16,6 +16,8 @@ import { supabase } from '@/integrations/supabase/client';
 import { useBankImporter, BankImportConfig, ImportPreviewRow, ColumnMapping, autoDetectColumns } from '@/hooks/useBankImporter';
 import { useCategoryRules } from '@/hooks/useCategoryRules';
 import { CategoryRulesPanel } from '@/components/transactions/CategoryRulesPanel';
+import { InlineL1Editor, InlineL2Editor } from '@/components/transactions/InlineCategoryEditor';
+import { TransferLinkBadge, buildTransferLinks } from '@/components/transactions/TransferLinkBadge';
 import { formatCompactCurrency } from '@/lib/format';
 import { cn } from '@/lib/utils';
 
@@ -122,6 +124,12 @@ export default function Transactions() {
     transactions.forEach(t => { if (t.l1_category) set.add(t.l1_category); });
     return Array.from(set).sort();
   }, [transactions]);
+
+  const transferLinks = useMemo(() => buildTransferLinks(transactions), [transactions]);
+
+  const handleCategoryUpdated = useCallback((id: string, l1: string | null, l2: string | null) => {
+    setTransactions(prev => prev.map(t => t.id === id ? { ...t, l1_category: l1, l2_category: l2 } : t));
+  }, []);
 
   const filtered = useMemo(() => {
     return transactions.filter(t => {
@@ -694,11 +702,30 @@ export default function Transactions() {
                           <TableCell className={cn('text-xs text-right font-medium', t.amount_aud >= 0 ? 'text-green-600' : 'text-destructive')}>
                             {t.amount_aud >= 0 ? '+' : ''}{formatCompactCurrency(Math.abs(t.amount_aud))}
                           </TableCell>
-                          <TableCell className="text-xs">{t.l1_category ?? <span className="text-muted-foreground">—</span>}</TableCell>
-                          <TableCell className="text-xs">{t.l2_category ?? <span className="text-muted-foreground">—</span>}</TableCell>
+                          <TableCell className="text-xs p-0">
+                            <InlineL1Editor
+                              transactionId={t.id}
+                              currentL1={t.l1_category}
+                              onUpdated={handleCategoryUpdated}
+                            />
+                          </TableCell>
+                          <TableCell className="text-xs p-0">
+                            <InlineL2Editor
+                              transactionId={t.id}
+                              currentL1={t.l1_category}
+                              currentL2={t.l2_category}
+                              onUpdated={handleCategoryUpdated}
+                            />
+                          </TableCell>
                           <TableCell>
-                            {t.needs_review && <Badge variant="outline" className="border-orange-500/30 text-orange-600 text-xs">Review</Badge>}
-                            {t.is_internal_transfer && <Badge variant="outline" className="text-muted-foreground text-xs">Transfer</Badge>}
+                            <div className="flex gap-1 flex-wrap">
+                              {t.needs_review && <Badge variant="outline" className="border-orange-500/30 text-orange-600 text-xs">Review</Badge>}
+                              {t.is_internal_transfer && <Badge variant="outline" className="text-muted-foreground text-xs">Transfer</Badge>}
+                              <TransferLinkBadge
+                                transaction={t}
+                                linkedAccount={transferLinks.get(t.id) ?? null}
+                              />
+                            </div>
                           </TableCell>
                         </TableRow>
                       ))}
