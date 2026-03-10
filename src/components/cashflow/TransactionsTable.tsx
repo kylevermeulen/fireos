@@ -180,13 +180,11 @@ export function TransactionsTable({
               <TableRow>
                 <SortableHeader field="date">Date</SortableHeader>
                 <SortableHeader field="source_account">Account</SortableHeader>
-                <SortableHeader field="counterparty">Counterparty</SortableHeader>
                 <TableHead className="sticky top-0 bg-background max-w-[200px]">Description</TableHead>
                 <SortableHeader field="amount_aud">
                   <span className="w-full text-right">Amount</span>
                 </SortableHeader>
-                <SortableHeader field="L1">L1</SortableHeader>
-                <SortableHeader field="L2">L2</SortableHeader>
+                <SortableHeader field="L1">Category</SortableHeader>
               </TableRow>
             </TableHeader>
             <TableBody>
