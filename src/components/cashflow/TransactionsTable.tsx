@@ -62,12 +62,13 @@ interface SortState {
 
 const PAGE_SIZE = 250;
 
-export function TransactionsTable({ 
-  transactions, 
-  title, 
+export function TransactionsTable({
+  transactions,
+  title,
   onClearFilter,
   showClearFilter = false,
   onTransactionUpdated,
+  onOptimisticUpdate,
 }: TransactionsTableProps) {
   const [sortState, setSortState] = useState<SortState>({ field: 'amount_aud', direction: 'desc' });
   const [visibleCount, setVisibleCount] = useState(PAGE_SIZE);
