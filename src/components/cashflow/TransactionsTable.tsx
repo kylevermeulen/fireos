@@ -285,7 +285,8 @@ export function TransactionsTable({
       <TransactionDetailModal
         transaction={selectedTx ? {
           id: selectedTx.id,
-          transaction_date: format(selectedTx.date, 'yyyy-MM-dd'),
+          transaction_date: format(selectedTx.transaction_date, 'yyyy-MM-dd'),
+          effective_date: selectedTx.effective_date ? format(selectedTx.effective_date, 'yyyy-MM-dd') : null,
           description: selectedTx.description,
           counterparty: selectedTx.counterparty,
           amount_native: selectedTx.amount_native,
