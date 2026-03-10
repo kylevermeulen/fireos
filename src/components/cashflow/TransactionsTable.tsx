@@ -189,22 +189,29 @@ export function TransactionsTable({
             </TableHeader>
             <TableBody>
               {visibleTransactions.map((tx, idx) => (
-                <TableRow key={idx}>
+                <TableRow key={tx.id || idx}>
                   <TableCell className="text-xs whitespace-nowrap">
                     {format(tx.date, 'MMM d, yyyy')}
                   </TableCell>
                   <TableCell className="text-xs">{tx.source_account}</TableCell>
-                  <TableCell className="text-xs max-w-[150px] truncate" title={tx.counterparty}>
-                    {tx.counterparty}
-                  </TableCell>
                   <TableCell className="text-xs max-w-[200px] truncate" title={tx.description}>
                     {tx.description}
                   </TableCell>
                   <TableCell className="text-xs text-right font-medium">
                     {formatCompactCurrency(tx.amount_aud)}
                   </TableCell>
-                  <TableCell className="text-xs">{tx.L1}</TableCell>
-                  <TableCell className="text-xs">{tx.L2}</TableCell>
+                  <TableCell className="text-xs">
+                    {tx.id ? (
+                      <CategoryBadge
+                        transactionId={tx.id}
+                        currentL1={tx.L1 === 'Unknown' ? null : tx.L1}
+                        currentL2={tx.L2 === 'Unknown' ? null : tx.L2}
+                        onUpdate={onTransactionUpdated ?? (() => {})}
+                      />
+                    ) : (
+                      <span className="text-muted-foreground">{tx.L1}</span>
+                    )}
+                  </TableCell>
                 </TableRow>
               ))}
             </TableBody>
