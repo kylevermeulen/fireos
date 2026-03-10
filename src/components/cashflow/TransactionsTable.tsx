@@ -8,6 +8,8 @@ import { X, ArrowUp, ArrowDown, ArrowUpDown, Download } from 'lucide-react';
 import { formatCompactCurrency } from '@/lib/format';
 import { CashflowTransaction } from '@/types/cashflow';
 import { CategoryBadge } from '@/components/transactions/CategoryBadge';
+import { TransactionDetailModal } from '@/components/transactions/TransactionDetailModal';
+import { buildTransferLinks } from '@/components/transactions/TransferLinkBadge';
 import { cn } from '@/lib/utils';
 
 function escapeCsvField(value: string): string {
@@ -72,6 +74,19 @@ export function TransactionsTable({
 }: TransactionsTableProps) {
   const [sortState, setSortState] = useState<SortState>({ field: 'amount_aud', direction: 'desc' });
   const [visibleCount, setVisibleCount] = useState(PAGE_SIZE);
+  const [selectedTx, setSelectedTx] = useState<CashflowTransaction | null>(null);
+
+  const transferLinks = useMemo(() => buildTransferLinks(
+    transactions.map(tx => ({
+      id: tx.id,
+      transaction_date: format(tx.date, 'yyyy-MM-dd'),
+      amount_aud: tx.direction === 'out' ? -tx.amount_aud : tx.amount_aud,
+      source_account_name: tx.source_account,
+      is_internal_transfer: tx.is_internal_transfer,
+      counterparty: tx.counterparty,
+      description: tx.description,
+    }))
+  ), [transactions]);
 
   const handleSort = (field: SortField) => {
     setSortState(prev => ({
@@ -106,6 +121,10 @@ export function TransactionsTable({
 
   const handleShowMore = () => {
     setVisibleCount(prev => Math.min(prev + PAGE_SIZE, transactions.length));
+  };
+
+  const handleBulkUpdate = (ids: string[], newL1: string, isTransfer: boolean) => {
+    ids.forEach(id => onOptimisticUpdate?.(id, newL1, isTransfer));
   };
 
   const SortableHeader = ({ field, children }: { field: SortField; children: React.ReactNode }) => {
@@ -145,90 +164,133 @@ export function TransactionsTable({
   }
 
   return (
-    <Card>
-      <CardHeader className="pb-3">
-        <div className="flex items-center justify-between">
-          <CardTitle className="text-base font-medium">
-            {title}
-            <span className="ml-2 text-sm font-normal text-muted-foreground">
-              ({transactions.length} transactions)
-            </span>
-          </CardTitle>
-          {showClearFilter && onClearFilter && (
-            <Button variant="ghost" size="sm" onClick={onClearFilter} className="h-7 px-2">
-              <X className="h-3 w-3 mr-1" />
-              Clear
-            </Button>
-          )}
-          <Button
-            variant="outline"
-            size="sm"
-            className="h-7 px-2"
-            onClick={() => exportTransactionsCsv(sortedTransactions, `cashflow_export_${format(new Date(), 'yyyy-MM-dd')}.csv`)}
-          >
-            <Download className="h-3 w-3 mr-1" />
-            Export CSV
-          </Button>
-        </div>
-      </CardHeader>
-      <CardContent className="pt-0">
-        <ScrollArea className="h-[500px]">
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <SortableHeader field="date">Date</SortableHeader>
-                <SortableHeader field="source_account">Account</SortableHeader>
-                <TableHead className="sticky top-0 bg-background max-w-[200px]">Description</TableHead>
-                <SortableHeader field="amount_aud">
-                  <span className="w-full text-right">Amount</span>
-                </SortableHeader>
-                <SortableHeader field="L1">Category</SortableHeader>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {visibleTransactions.map((tx, idx) => (
-                <TableRow key={tx.id || idx}>
-                  <TableCell className="text-xs whitespace-nowrap">
-                    {format(tx.date, 'MMM d, yyyy')}
-                  </TableCell>
-                  <TableCell className="text-xs">{tx.source_account}</TableCell>
-                  <TableCell className="text-xs max-w-[200px] truncate" title={tx.description}>
-                    {tx.description}
-                  </TableCell>
-                  <TableCell className="text-xs text-right font-medium">
-                    {formatCompactCurrency(tx.amount_aud)}
-                  </TableCell>
-                  <TableCell className="text-xs">
-                    {tx.id ? (
-                      <CategoryBadge
-                        transactionId={tx.id}
-                        currentL1={tx.L1 === 'Unknown' ? null : tx.L1}
-                        currentL2={tx.L2 === 'Unknown' ? null : tx.L2}
-                        onOptimisticUpdate={onOptimisticUpdate}
-                        onUpdate={onTransactionUpdated ?? (() => {})}
-                      />
-                    ) : (
-                      <span className="text-muted-foreground">{tx.L1}</span>
-                    )}
-                  </TableCell>
+    <>
+      <Card>
+        <CardHeader className="pb-3">
+          <div className="flex items-center justify-between">
+            <CardTitle className="text-base font-medium">
+              {title}
+              <span className="ml-2 text-sm font-normal text-muted-foreground">
+                ({transactions.length} transactions)
+              </span>
+            </CardTitle>
+            <div className="flex items-center gap-2">
+              {showClearFilter && onClearFilter && (
+                <Button variant="ghost" size="sm" onClick={onClearFilter} className="h-7 px-2">
+                  <X className="h-3 w-3 mr-1" />
+                  Clear
+                </Button>
+              )}
+              <Button
+                variant="outline"
+                size="sm"
+                className="h-7 px-2"
+                onClick={() => exportTransactionsCsv(sortedTransactions, `cashflow_export_${format(new Date(), 'yyyy-MM-dd')}.csv`)}
+              >
+                <Download className="h-3 w-3 mr-1" />
+                Export CSV
+              </Button>
+            </div>
+          </div>
+        </CardHeader>
+        <CardContent className="pt-0">
+          <ScrollArea className="h-[500px]">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <SortableHeader field="date">Date</SortableHeader>
+                  <SortableHeader field="source_account">Account</SortableHeader>
+                  <TableHead className="sticky top-0 bg-background max-w-[200px]">Description</TableHead>
+                  <SortableHeader field="amount_aud">
+                    <span className="w-full text-right">Amount</span>
+                  </SortableHeader>
+                  <SortableHeader field="L1">Category</SortableHeader>
                 </TableRow>
-              ))}
-            </TableBody>
-          </Table>
-        </ScrollArea>
-        
-        {/* Show more / pagination info */}
-        <div className="flex items-center justify-between pt-3 border-t mt-3">
-          <p className="text-xs text-muted-foreground">
-            Showing {visibleTransactions.length} of {transactions.length} transactions
-          </p>
-          {hasMore && (
-            <Button variant="outline" size="sm" onClick={handleShowMore}>
-              Show more (+{Math.min(PAGE_SIZE, transactions.length - visibleCount)})
-            </Button>
-          )}
-        </div>
-      </CardContent>
-    </Card>
+              </TableHeader>
+              <TableBody>
+                {visibleTransactions.map((tx, idx) => {
+                  const isTransfer = tx.is_internal_transfer;
+                  return (
+                    <TableRow
+                      key={tx.id || idx}
+                      className={cn(
+                        'cursor-pointer hover:bg-muted/50',
+                        isTransfer && 'opacity-50'
+                      )}
+                      onClick={() => setSelectedTx(tx)}
+                    >
+                      <TableCell className={cn('text-xs whitespace-nowrap', isTransfer && 'text-muted-foreground')}>
+                        {format(tx.date, 'MMM d, yyyy')}
+                      </TableCell>
+                      <TableCell className={cn('text-xs', isTransfer && 'text-muted-foreground')}>
+                        {tx.source_account}
+                      </TableCell>
+                      <TableCell className={cn('text-xs max-w-[200px] truncate', isTransfer && 'text-muted-foreground')} title={tx.description}>
+                        {tx.description}
+                      </TableCell>
+                      <TableCell className={cn(
+                        'text-xs text-right font-medium',
+                        isTransfer ? 'text-muted-foreground' : undefined
+                      )}>
+                        {formatCompactCurrency(tx.amount_aud)}
+                      </TableCell>
+                      <TableCell className="text-xs" onClick={(e) => e.stopPropagation()}>
+                        {tx.id ? (
+                          <CategoryBadge
+                            transactionId={tx.id}
+                            currentL1={tx.L1 === 'Unknown' ? null : tx.L1}
+                            currentL2={tx.L2 === 'Unknown' ? null : tx.L2}
+                            description={tx.description}
+                            onOptimisticUpdate={onOptimisticUpdate}
+                            onBulkUpdate={handleBulkUpdate}
+                            onUpdate={onTransactionUpdated ?? (() => {})}
+                          />
+                        ) : (
+                          <span className="text-muted-foreground">{tx.L1}</span>
+                        )}
+                      </TableCell>
+                    </TableRow>
+                  );
+                })}
+              </TableBody>
+            </Table>
+          </ScrollArea>
+          
+          <div className="flex items-center justify-between pt-3 border-t mt-3">
+            <p className="text-xs text-muted-foreground">
+              Showing {visibleTransactions.length} of {transactions.length} transactions
+            </p>
+            {hasMore && (
+              <Button variant="outline" size="sm" onClick={handleShowMore}>
+                Show more (+{Math.min(PAGE_SIZE, transactions.length - visibleCount)})
+              </Button>
+            )}
+          </div>
+        </CardContent>
+      </Card>
+
+      <TransactionDetailModal
+        transaction={selectedTx ? {
+          id: selectedTx.id,
+          transaction_date: format(selectedTx.date, 'yyyy-MM-dd'),
+          description: selectedTx.description,
+          counterparty: selectedTx.counterparty,
+          amount_native: selectedTx.amount_native,
+          amount_aud: selectedTx.direction === 'out' ? -selectedTx.amount_aud : selectedTx.amount_aud,
+          currency: selectedTx.currency,
+          l1_category: selectedTx.L1 === 'Unknown' ? null : selectedTx.L1,
+          l2_category: selectedTx.L2 === 'Unknown' ? null : selectedTx.L2,
+          source_account_name: selectedTx.source_account,
+          transaction_type: selectedTx.direction === 'in' ? 'income' : 'expense',
+          is_internal_transfer: selectedTx.is_internal_transfer,
+          needs_review: false,
+        } : null}
+        open={!!selectedTx}
+        onOpenChange={(open) => { if (!open) setSelectedTx(null); }}
+        onOptimisticUpdate={onOptimisticUpdate}
+        onUpdate={onTransactionUpdated}
+        linkedAccount={selectedTx ? (transferLinks.get(selectedTx.id) ?? null) : null}
+      />
+    </>
   );
 }
