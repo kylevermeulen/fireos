@@ -732,8 +732,7 @@ export default function Transactions() {
                         <SortableHeader field="account">Account</SortableHeader>
                         <SortableHeader field="description">Description</SortableHeader>
                         <SortableHeader field="amount" className="text-right">Amount</SortableHeader>
-                        <SortableHeader field="l1">L1</SortableHeader>
-                        <SortableHeader field="l2">L2</SortableHeader>
+                        <SortableHeader field="l1">Category</SortableHeader>
                         <TableHead className="sticky top-0 bg-background w-16">Flags</TableHead>
                       </TableRow>
                     </TableHeader>
@@ -748,19 +747,12 @@ export default function Transactions() {
                           <TableCell className={cn('text-xs text-right font-medium', t.amount_aud >= 0 ? 'text-green-600' : 'text-destructive')}>
                             {t.amount_aud >= 0 ? '+' : ''}{formatCompactCurrency(Math.abs(t.amount_aud))}
                           </TableCell>
-                          <TableCell className="text-xs p-0">
-                            <InlineL1Editor
-                              transactionId={t.id}
-                              currentL1={t.l1_category}
-                              onUpdated={handleCategoryUpdated}
-                            />
-                          </TableCell>
-                          <TableCell className="text-xs p-0">
-                            <InlineL2Editor
+                          <TableCell className="text-xs">
+                            <CategoryBadge
                               transactionId={t.id}
                               currentL1={t.l1_category}
                               currentL2={t.l2_category}
-                              onUpdated={handleCategoryUpdated}
+                              onUpdate={handleCategoryUpdated}
                             />
                           </TableCell>
                           <TableCell>
