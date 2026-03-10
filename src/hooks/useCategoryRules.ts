@@ -276,12 +276,19 @@ export function useCategoryRules() {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error('Must be logged in');
 
-      const toInsert = DEFAULT_RULES.map(r => ({ ...r, user_id: user.id }));
+      // Deduplicate by keyword (last occurrence wins)
+      const deduped = new Map<string, typeof DEFAULT_RULES[number]>();
+      for (const r of DEFAULT_RULES) deduped.set(r.keyword, r);
+      const toInsert = Array.from(deduped.values()).map(r => ({ ...r, user_id: user.id }));
 
-      // Upsert to avoid duplicates
-      const { error } = await supabase
-        .from('category_rules')
-        .upsert(toInsert, { onConflict: 'user_id,keyword' });
+      // Upsert in batches to avoid hitting row limits
+      for (let i = 0; i < toInsert.length; i += 200) {
+        const batch = toInsert.slice(i, i + 200);
+        const { error } = await supabase
+          .from('category_rules')
+          .upsert(batch, { onConflict: 'user_id,keyword' });
+        if (error) throw error;
+      }
       if (error) throw error;
 
       toast({ title: 'Category rules seeded', description: `${toInsert.length} rules created/updated` });
