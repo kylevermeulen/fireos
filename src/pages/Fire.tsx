@@ -33,7 +33,7 @@ const DEFAULT_SETTINGS: FireSettings = {
 
 export default function Fire() {
   const { effectiveDateRange } = useGlobalTimeRange();
-  const [mode, setMode] = useState<CashflowMode>('amortised');
+  const [mode, setMode] = useState<CashflowMode>('accrual');
   const [settings, setSettings] = useState<FireSettings>(DEFAULT_SETTINGS);
 
   // Load transaction data
