@@ -296,6 +296,11 @@ export function autoDetectColumns(headers: string[]): { mapping: ColumnMapping; 
   const isPermata = findCol(headers, ['posted date']) !== -1 && signIdx !== -1;
   const detectedDateFormat: BankImportConfig['dateFormat'] = isPermata ? 'mm/dd/yyyy' : 'auto';
 
+  // For Permata, record expected column count so we can anchor from end
+  if (isPermata) {
+    mapping.expectedColumns = headers.length;
+  }
+
   return { mapping, hasDebitCredit, detectedDateFormat };
 }
 
