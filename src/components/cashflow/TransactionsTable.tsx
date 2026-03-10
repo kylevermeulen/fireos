@@ -204,6 +204,7 @@ export function TransactionsTable({
                         transactionId={tx.id}
                         currentL1={tx.L1 === 'Unknown' ? null : tx.L1}
                         currentL2={tx.L2 === 'Unknown' ? null : tx.L2}
+                        onOptimisticUpdate={onOptimisticUpdate}
                         onUpdate={onTransactionUpdated ?? (() => {})}
                       />
                     ) : (

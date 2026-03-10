@@ -242,6 +242,7 @@ export default function Cashflow() {
           onClearFilter={() => setSelectedNode(null)}
           showClearFilter={!!selectedNode}
           onTransactionUpdated={reload}
+          onOptimisticUpdate={updateTransaction}
         />
 
         {/* Data Sanity Panel */}

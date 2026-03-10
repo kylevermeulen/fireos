@@ -756,7 +756,8 @@ export default function Transactions() {
                               transactionId={t.id}
                               currentL1={t.l1_category}
                               currentL2={t.l2_category}
-                              onUpdate={handleCategoryUpdated}
+                              onOptimisticUpdate={handleCategoryUpdated}
+                              onUpdate={loadTransactions}
                             />
                           </TableCell>
                           <TableCell>
