@@ -124,11 +124,11 @@ export default function Fire() {
               onValueChange={(v) => v && setMode(v as CashflowMode)}
               className="border rounded-lg"
             >
-              <ToggleGroupItem value="amortised" className="text-xs px-3">
-                Amortised
+              <ToggleGroupItem value="accrual" className="text-xs px-3">
+                Accrual
               </ToggleGroupItem>
-              <ToggleGroupItem value="cashflow" className="text-xs px-3">
-                Cashflow
+              <ToggleGroupItem value="cash" className="text-xs px-3">
+                Cash
               </ToggleGroupItem>
             </ToggleGroup>
             <GlobalTimeRangeSelector />
