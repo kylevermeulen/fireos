@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { RefreshCw, LogOut, User, Shield, Trash2, Database, RotateCcw } from 'lucide-react';
+import { RefreshCw, LogOut, User, Shield, Trash2, Database, RotateCcw, Eraser } from 'lucide-react';
 
 import { AppLayout } from '@/components/layout/AppLayout';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
