@@ -10,8 +10,9 @@ import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import {
-  Upload, Search, ArrowUp, ArrowDown, ArrowUpDown, Download, Check, FileSpreadsheet, Tag, X, AlertTriangle,
+  Upload, Search, ArrowUp, ArrowDown, ArrowUpDown, Download, Check, FileSpreadsheet, Tag, X, AlertTriangle, Trash2,
 } from 'lucide-react';
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
 import { supabase } from '@/integrations/supabase/client';
 import { useBankImporter, BankImportConfig, ImportPreviewRow, ColumnMapping, autoDetectColumns, findHeaderRow } from '@/hooks/useBankImporter';
 import { useCategoryRules } from '@/hooks/useCategoryRules';
