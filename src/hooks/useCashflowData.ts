@@ -23,9 +23,11 @@ async function fetchAllTransactions(userId: string, mode: CashflowMode): Promise
     if (mode === 'cash') {
       // Cash mode: show real lump-sum payments, hide synthetic
       query = query.eq('is_synthetic', false);
+      console.log('[CashflowData] Cash mode filters: is_synthetic=false');
     } else {
       // Accrual mode: show synthetic monthly rows, hide lump-sum sources
       query = query.eq('is_amortised_source', false);
+      console.log('[CashflowData] Accrual mode filters: is_amortised_source=false');
     }
 
     const { data, error } = await query;
