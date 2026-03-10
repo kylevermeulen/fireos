@@ -47,19 +47,8 @@ export function BankImporter() {
     setFileName(file.name);
     file.text().then(content => {
       setCsvContent(content);
-      // Parse first line for headers using proper CSV parsing
-      const firstLine = content.split(/\r?\n/)[0] ?? '';
-      // Simple header extraction (handle quoted headers)
-      const hdrs: string[] = [];
-      let cur = '';
-      let inQ = false;
-      for (let i = 0; i < firstLine.length; i++) {
-        const ch = firstLine[i];
-        if (ch === '"') { inQ = !inQ; continue; }
-        if (ch === ',' && !inQ) { hdrs.push(cur.trim()); cur = ''; continue; }
-        cur += ch;
-      }
-      hdrs.push(cur.trim());
+      // Find real header row (handles preambles like Permata)
+      const { headerIndex, headers: hdrs } = findHeaderRow(content);
       setHeaders(hdrs);
 
       // Use the robust autoDetectColumns from useBankImporter
