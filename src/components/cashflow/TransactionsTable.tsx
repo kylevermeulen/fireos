@@ -221,7 +221,19 @@ export function TransactionsTable({
                       onClick={() => setSelectedTx(tx)}
                     >
                       <TableCell className={cn('text-xs whitespace-nowrap', isTransfer && 'text-muted-foreground')}>
-                        {format(tx.date, 'MMM d, yyyy')}
+                        <span className="flex items-center gap-1">
+                          {format(tx.date, 'MMM d, yyyy')}
+                          {tx.effective_date && (
+                            <Tooltip>
+                              <TooltipTrigger asChild>
+                                <CalendarDays className="h-3 w-3 text-muted-foreground/50" />
+                              </TooltipTrigger>
+                              <TooltipContent side="top" className="text-xs">
+                                Accrual date set to {format(tx.effective_date, 'MMM d, yyyy')}
+                              </TooltipContent>
+                            </Tooltip>
+                          )}
+                        </span>
                       </TableCell>
                       <TableCell className={cn('text-xs', isTransfer && 'text-muted-foreground')}>
                         {tx.source_account}
