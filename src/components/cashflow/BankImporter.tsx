@@ -7,7 +7,7 @@ import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Upload, Check, AlertTriangle, FileSpreadsheet, Tag } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
-import { useBankImporter, autoDetectColumns, BankImportConfig, ImportPreviewRow, ColumnMapping } from '@/hooks/useBankImporter';
+import { useBankImporter, autoDetectColumns, findHeaderRow, BankImportConfig, ImportPreviewRow, ColumnMapping } from '@/hooks/useBankImporter';
 import { useCategoryRules } from '@/hooks/useCategoryRules';
 import { formatCompactCurrency } from '@/lib/format';
 
@@ -31,6 +31,7 @@ export function BankImporter() {
   const [useSeparateDebitCredit, setUseSeparateDebitCredit] = useState(false);
   const [importDone, setImportDone] = useState(false);
   const [step, setStep] = useState<'select' | 'map' | 'preview' | 'done'>('select');
+  const [headerIndex, setHeaderIndex] = useState(0);
 
   // Fetch accounts
   useEffect(() => {
@@ -47,19 +48,9 @@ export function BankImporter() {
     setFileName(file.name);
     file.text().then(content => {
       setCsvContent(content);
-      // Parse first line for headers using proper CSV parsing
-      const firstLine = content.split(/\r?\n/)[0] ?? '';
-      // Simple header extraction (handle quoted headers)
-      const hdrs: string[] = [];
-      let cur = '';
-      let inQ = false;
-      for (let i = 0; i < firstLine.length; i++) {
-        const ch = firstLine[i];
-        if (ch === '"') { inQ = !inQ; continue; }
-        if (ch === ',' && !inQ) { hdrs.push(cur.trim()); cur = ''; continue; }
-        cur += ch;
-      }
-      hdrs.push(cur.trim());
+      // Find real header row (handles preambles like Permata)
+      const { headerIndex: hIdx, headers: hdrs } = findHeaderRow(content);
+      setHeaderIndex(hIdx);
       setHeaders(hdrs);
 
       // Use the robust autoDetectColumns from useBankImporter
@@ -83,7 +74,7 @@ export function BankImporter() {
       fileName: fileName ?? 'unknown.csv',
       columnMapping,
       dateFormat,
-      skipRows: 1,
+      skipRows: headerIndex + 1,
       invertSign: false,
     };
 
@@ -103,7 +94,7 @@ export function BankImporter() {
       fileName: fileName ?? 'unknown.csv',
       columnMapping,
       dateFormat,
-      skipRows: 1,
+      skipRows: headerIndex + 1,
       invertSign: false,
     };
 

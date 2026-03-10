@@ -17,6 +17,7 @@ export interface ColumnMapping {
   direction?: number;      // Direction column (IN/OUT) — determines sign (e.g. Wise)
   feeAmount?: number;      // Fee column to add to the source amount for total
   sourceCurrency?: number; // Source currency column
+  signColumn?: number;     // Credit/Debit indicator column (e.g. Permata)
 }
 
 export interface BankImportConfig {
@@ -114,7 +115,20 @@ function parseAmount(value: string): number | null {
   if (!value) return null;
   let s = value.trim().replace(/\$/g, '').replace(/\s/g, '');
   const neg = s.startsWith('-') || (s.startsWith('(') && s.endsWith(')'));
-  s = s.replace(/[()-]/g, '').replace(/,/g, '');
+  s = s.replace(/[()-]/g, '');
+
+  // Detect IDR-style formatting: dots as thousands separators, comma as decimal (or no decimal)
+  // e.g. "1.500.000" or "1.500.000,00"
+  const dotCount = (s.match(/\./g) || []).length;
+  const commaCount = (s.match(/,/g) || []).length;
+  if (dotCount > 1 || (dotCount >= 1 && commaCount === 1)) {
+    // Dots are thousand separators, comma is decimal
+    s = s.replace(/\./g, '').replace(',', '.');
+  } else {
+    // Standard: commas are thousand separators
+    s = s.replace(/,/g, '');
+  }
+
   const n = parseFloat(s);
   if (!isFinite(n)) return null;
   return neg ? -Math.abs(n) : n;
@@ -164,6 +178,40 @@ function findCol(headers: string[], names: string[]): number {
 }
 
 /**
+ * Scan the first N lines of CSV content to find the actual header row.
+ * Some bank CSVs (e.g. Permata) have preamble rows before headers.
+ * Returns the header row index (0-based) and parsed headers.
+ */
+export function findHeaderRow(csvContent: string, maxScan = 5): { headerIndex: number; headers: string[] } {
+  const lines = csvContent.split(/\r?\n/).filter(l => l.trim());
+  const knownHeaderKeywords = [
+    'posted date', 'transaction date', 'date', 'settled date', 'created on', 'time',
+  ];
+
+  for (let i = 0; i < Math.min(maxScan, lines.length); i++) {
+    const cells = parseCsvLine(lines[i]);
+    const normalized = cells.map(c => c.toLowerCase().replace(/[_\s]+/g, ' ').trim());
+    // Check if this row contains at least one known date-related header AND at least one other known header
+    const hasDateHeader = normalized.some(h =>
+      knownHeaderKeywords.some(k => h.includes(k))
+    );
+    const hasOtherHeader = normalized.some(h =>
+      h.includes('description') || h.includes('amount') || h.includes('credit') || h.includes('debit') || h.includes('direction') || h.includes('narrative')
+    );
+    if (hasDateHeader && hasOtherHeader) {
+      // Remove BOM from first cell
+      if (cells[0]?.startsWith('\uFEFF')) cells[0] = cells[0].slice(1);
+      return { headerIndex: i, headers: cells.map(c => c.trim()) };
+    }
+  }
+
+  // Fallback: first row
+  const cells = parseCsvLine(lines[0] ?? '');
+  if (cells[0]?.startsWith('\uFEFF')) cells[0] = cells[0].slice(1);
+  return { headerIndex: 0, headers: cells.map(c => c.trim()) };
+}
+
+/**
  * Auto-detect column mapping from CSV headers.
  */
 export function autoDetectColumns(headers: string[]): { mapping: ColumnMapping; hasDebitCredit: boolean; detectedDateFormat: BankImportConfig['dateFormat'] } {
@@ -199,11 +247,12 @@ export function autoDetectColumns(headers: string[]): { mapping: ColumnMapping; 
     return { mapping, hasDebitCredit: false, detectedDateFormat: 'iso' as BankImportConfig['dateFormat'] };
   }
 
-  // Date: prefer "Settled Date" (actual settlement), then "Time", then generic "date"
+  // Date: prefer "Posted Date", "Settled Date" (actual settlement), then "Time", then generic "date"
+  const postedIdx = findCol(headers, ['posted date']);
   const settledIdx = findCol(headers, ['settled date']);
   const timeIdx = findCol(headers, ['time']);
   const dateIdx = findCol(headers, ['date', 'transaction date', 'trans date']);
-  mapping.date = settledIdx !== -1 ? settledIdx : (timeIdx !== -1 ? timeIdx : (dateIdx !== -1 ? dateIdx : 0));
+  mapping.date = postedIdx !== -1 ? postedIdx : (settledIdx !== -1 ? settledIdx : (timeIdx !== -1 ? timeIdx : (dateIdx !== -1 ? dateIdx : 0)));
 
   // Description
   const descIdx = findCol(headers, ['description', 'narrative', 'details', 'memo', 'transaction description']);
@@ -224,6 +273,10 @@ export function autoDetectColumns(headers: string[]): { mapping: ColumnMapping; 
     hasDebitCredit = true;
   }
 
+  // Credit/Debit sign indicator column (e.g. Permata: "Credit/Debit")
+  const signIdx = findCol(headers, ['credit/debit', 'credit debit', 'cr/dr']);
+  if (signIdx !== -1) mapping.signColumn = signIdx;
+
   // Counterparty / Payee
   const payeeIdx = findCol(headers, ['payee', 'counterparty', 'merchant', 'beneficiary']);
   if (payeeIdx !== -1) mapping.counterparty = payeeIdx;
@@ -236,7 +289,11 @@ export function autoDetectColumns(headers: string[]): { mapping: ColumnMapping; 
   const typeIdx = findCol(headers, ['transaction type', 'type']);
   if (typeIdx !== -1) mapping.transactionType = typeIdx;
 
-  return { mapping, hasDebitCredit, detectedDateFormat: 'auto' };
+  // Detect Permata-style: has "Posted Date" and "Credit/Debit" columns
+  const isPermata = findCol(headers, ['posted date']) !== -1 && signIdx !== -1;
+  const detectedDateFormat: BankImportConfig['dateFormat'] = isPermata ? 'mm/dd/yyyy' : 'auto';
+
+  return { mapping, hasDebitCredit, detectedDateFormat };
 }
 
 export function useBankImporter() {
@@ -303,6 +360,13 @@ export function useBankImporter() {
         if (direction === 'OUT') amount = -amount;
         // NEUTRAL direction (e.g. currency conversion) — treat as outflow
         if (direction === 'NEUTRAL') amount = -amount;
+      }
+
+      // If sign column exists (Permata format: "Credit/Debit"), use it to determine sign
+      if (config.columnMapping.signColumn != null && amount != null) {
+        const sign = (cells[config.columnMapping.signColumn] ?? '').toUpperCase().trim();
+        amount = Math.abs(amount);
+        if (sign === 'DEBIT' || sign === 'DB' || sign === 'D') amount = -amount;
       }
 
       if (config.invertSign && amount != null) amount = -amount;

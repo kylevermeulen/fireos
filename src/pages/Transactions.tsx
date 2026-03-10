@@ -13,7 +13,7 @@ import {
   Upload, Search, ArrowUp, ArrowDown, ArrowUpDown, Download, Check, FileSpreadsheet, Tag, X, AlertTriangle,
 } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
-import { useBankImporter, BankImportConfig, ImportPreviewRow, ColumnMapping, autoDetectColumns } from '@/hooks/useBankImporter';
+import { useBankImporter, BankImportConfig, ImportPreviewRow, ColumnMapping, autoDetectColumns, findHeaderRow } from '@/hooks/useBankImporter';
 import { useCategoryRules } from '@/hooks/useCategoryRules';
 import { CategoryRulesPanel } from '@/components/transactions/CategoryRulesPanel';
 import { InlineL1Editor, InlineL2Editor } from '@/components/transactions/InlineCategoryEditor';
@@ -85,6 +85,7 @@ export default function Transactions() {
   const [importStep, setImportStep] = useState<'idle' | 'map' | 'preview' | 'done'>('idle');
   const [dragActive, setDragActive] = useState(false);
   const [invertSign, setInvertSign] = useState(false);
+  const [headerIndex, setHeaderIndex] = useState(0);
 
   const selectedAccount = accounts.find(a => a.id === selectedAccountId);
 
@@ -226,19 +227,8 @@ export default function Transactions() {
     }
     first.text().then(content => {
       setCsvContent(content);
-      // Parse header line properly (handles quoted headers with commas)
-      const firstLine = content.split(/\r?\n/)[0] ?? '';
-      const hdrs: string[] = [];
-      let cur = '', inQ = false;
-      for (let ci = 0; ci < firstLine.length; ci++) {
-        const ch = firstLine[ci];
-        if (ch === '"') { inQ = !inQ; continue; }
-        if (ch === ',' && !inQ) { hdrs.push(cur.trim()); cur = ''; continue; }
-        cur += ch;
-      }
-      hdrs.push(cur.trim());
-      // Remove BOM
-      if (hdrs[0]?.startsWith('\uFEFF')) hdrs[0] = hdrs[0].slice(1);
+      const { headerIndex: hIdx, headers: hdrs } = findHeaderRow(content);
+      setHeaderIndex(hIdx);
 
       setHeaders(hdrs);
 
@@ -272,7 +262,7 @@ export default function Transactions() {
       fileName: currentFileName ?? 'unknown.csv',
       columnMapping,
       dateFormat,
-      skipRows: 1,
+      skipRows: headerIndex + 1,
       invertSign,
     };
     const parsed = parseFile(csvContent, config, applyRules);
@@ -292,7 +282,7 @@ export default function Transactions() {
       fileName: currentFileName ?? 'unknown.csv',
       columnMapping,
       dateFormat,
-      skipRows: 1,
+      skipRows: headerIndex + 1,
       invertSign,
     };
 
