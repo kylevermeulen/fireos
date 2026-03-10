@@ -87,8 +87,27 @@ export default function Transactions() {
   const [dragActive, setDragActive] = useState(false);
   const [invertSign, setInvertSign] = useState(false);
   const [headerIndex, setHeaderIndex] = useState(0);
+  const [deleteAccountId, setDeleteAccountId] = useState<string>('');
+  const [isDeleting, setIsDeleting] = useState(false);
 
   const selectedAccount = accounts.find(a => a.id === selectedAccountId);
+
+  const handleDeleteByAccount = useCallback(async () => {
+    if (!deleteAccountId) return;
+    setIsDeleting(true);
+    const acct = accounts.find(a => a.id === deleteAccountId);
+    const { error, count } = await supabase
+      .from('transactions')
+      .delete({ count: 'exact' })
+      .eq('account_id', deleteAccountId);
+    setIsDeleting(false);
+    if (error) {
+      console.error('Delete error:', error);
+    } else {
+      loadTransactions();
+    }
+    setDeleteAccountId('');
+  }, [deleteAccountId, accounts, loadTransactions]);
 
   // ── Load data ──
   const loadTransactions = useCallback(async () => {
