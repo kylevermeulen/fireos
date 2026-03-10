@@ -37,6 +37,7 @@ const DEFAULT_RULES: Omit<CategoryRule, 'id'>[] = [
   { keyword: 'Transfer to other Bank', l1_category: 'Transfer — Internal', l2_category: null, is_internal_transfer: true, needs_review: false, priority: 8 },
   { keyword: 'Osko Deposit', l1_category: 'Transfer — Internal', l2_category: null, is_internal_transfer: true, needs_review: false, priority: 15 },
   { keyword: 'Transfer from xx', l1_category: 'Transfer — Internal', l2_category: null, is_internal_transfer: true, needs_review: false, priority: 15 },
+  { keyword: 'Osko Withdrawal', l1_category: 'Transfer — Internal', l2_category: null, is_internal_transfer: true, needs_review: false, priority: 15 },
 
   // ── MORTGAGE ──
   { keyword: 'Loan Repayment S.311.2350776.01', l1_category: 'Mortgage', l2_category: 'Fixed Repayment', is_internal_transfer: false, needs_review: false, priority: 20 },
