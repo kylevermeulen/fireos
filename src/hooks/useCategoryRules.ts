@@ -138,7 +138,7 @@ const DEFAULT_RULES: Omit<CategoryRule, 'id'>[] = [
   { keyword: 'GOOGLE', l1_category: 'Subscriptions', l2_category: null, is_internal_transfer: false, needs_review: false, priority: 3 },
   { keyword: 'DROPBOX', l1_category: 'Subscriptions', l2_category: null, is_internal_transfer: false, needs_review: false, priority: 5 },
   { keyword: 'CANVA', l1_category: 'Subscriptions', l2_category: null, is_internal_transfer: false, needs_review: false, priority: 5 },
-  { keyword: 'OPENAI', l1_category: 'Subscriptions', l2_category: null, is_internal_transfer: false, needs_review: false, priority: 5 },
+  { keyword: 'OPENAI', l1_category: 'Subscriptions', l2_category: null, is_internal_transfer: false, needs_review: false, priority: 8 },
   { keyword: 'ANTHROPIC', l1_category: 'Subscriptions', l2_category: null, is_internal_transfer: false, needs_review: false, priority: 5 },
   { keyword: 'HEVY', l1_category: 'Subscriptions', l2_category: null, is_internal_transfer: false, needs_review: false, priority: 5 },
 
@@ -179,6 +179,20 @@ const DEFAULT_RULES: Omit<CategoryRule, 'id'>[] = [
 
   // ── INVESTING ──
   { keyword: 'CoinJar', l1_category: 'Investing', l2_category: null, is_internal_transfer: false, needs_review: false, priority: 5 },
+
+  // ── NEW RULES ──
+  { keyword: 'ZLR*', l1_category: 'Restaurants, Cafes & Bars', l2_category: null, is_internal_transfer: false, needs_review: false, priority: 5 },
+  { keyword: 'AMZNPRIME', l1_category: 'Subscriptions', l2_category: null, is_internal_transfer: false, needs_review: false, priority: 10 },
+  { keyword: 'CHATGPT', l1_category: 'Subscriptions', l2_category: null, is_internal_transfer: false, needs_review: false, priority: 8 },
+  { keyword: 'CHARGE FOR OVERDUE PAYMENT', l1_category: 'Taxes & Govt Fees', l2_category: null, is_internal_transfer: false, needs_review: false, priority: 10 },
+  { keyword: 'VIVEN AND CUPID', l1_category: 'Shopping', l2_category: null, is_internal_transfer: false, needs_review: false, priority: 5 },
+  { keyword: 'AEROXSPACE', l1_category: 'Shopping', l2_category: null, is_internal_transfer: false, needs_review: false, priority: 5 },
+  { keyword: 'RABBIT09 PTY LTD', l1_category: 'Restaurants, Cafes & Bars', l2_category: null, is_internal_transfer: false, needs_review: false, priority: 8 },
+  { keyword: 'LIQUORLAND', l1_category: 'Restaurants, Cafes & Bars', l2_category: null, is_internal_transfer: false, needs_review: false, priority: 5 },
+  { keyword: 'JL. DANAU TAMBL', l1_category: 'Restaurants, Cafes & Bars', l2_category: null, is_internal_transfer: false, needs_review: false, priority: 8 },
+  { keyword: 'DESTINATION BRISBANE', l1_category: 'Travel', l2_category: 'Accommodation', is_internal_transfer: false, needs_review: false, priority: 8 },
+  { keyword: 'W SYDNEY', l1_category: 'Travel', l2_category: 'Accommodation', is_internal_transfer: false, needs_review: false, priority: 8 },
+  { keyword: 'WASHINGTON STATE FERRI', l1_category: 'Travel', l2_category: null, is_internal_transfer: false, needs_review: false, priority: 8 },
 
   // ── FOOD DELIVERY & TAXI ──
   { keyword: 'UBER EATS', l1_category: 'Food Delivery & Taxi', l2_category: null, is_internal_transfer: false, needs_review: false, priority: 10 },
@@ -308,17 +322,19 @@ export function useCategoryRules() {
    * (longest keyword match with highest priority wins).
    */
   const applyRules = useCallback((description: string, overrideRules?: CategoryRule[]): CategoryRule | null => {
-    const rulesToUse = overrideRules ?? rules;
-    if (!description || rulesToUse.length === 0) return null;
+    if (!overrideRules || overrideRules.length === 0) {
+      console.warn('[applyRules] No rules provided — pass freshRules explicitly');
+      return null;
+    }
+    if (!description) return null;
 
     const upper = description.toUpperCase();
     let bestMatch: CategoryRule | null = null;
     let bestLen = 0;
 
-    for (const rule of rulesToUse) {
+    for (const rule of overrideRules) {
       const kw = rule.keyword.toUpperCase();
       if (upper.includes(kw)) {
-        // Prefer longer keywords, then higher priority
         if (kw.length > bestLen || (kw.length === bestLen && rule.priority > (bestMatch?.priority ?? 0))) {
           bestMatch = rule;
           bestLen = kw.length;
@@ -327,7 +343,7 @@ export function useCategoryRules() {
     }
 
     return bestMatch;
-  }, [rules]);
+  }, []);
 
   return { rules, isLoading, isSeeding, seedRules, applyRules, fetchRules };
 }

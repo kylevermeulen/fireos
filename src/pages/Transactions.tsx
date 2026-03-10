@@ -289,11 +289,11 @@ export default function Transactions() {
       skipRows: headerIndex + 1,
       invertSign,
     };
-    const parsed = parseFile(csvContent, config, applyRules);
+    const parsed = parseFile(csvContent, config, (text) => applyRules(text, rules));
     const withDupes = await checkDuplicates(parsed, selectedAccountId);
     setPreviewRows(withDupes);
     setImportStep('preview');
-  }, [csvContent, selectedAccountId, selectedAccount, columnMapping, dateFormat, currentFileName, parseFile, applyRules, checkDuplicates]);
+  }, [csvContent, selectedAccountId, selectedAccount, columnMapping, dateFormat, currentFileName, parseFile, applyRules, rules, checkDuplicates]);
 
   // ── Import ──
   const handleImport = useCallback(async () => {
@@ -316,14 +316,14 @@ export default function Transactions() {
     for (let i = 1; i < pendingFiles.length; i++) {
       const file = pendingFiles[i];
       const content = await file.text();
-      const parsed = parseFile(content, { ...config, fileName: file.name }, applyRules);
+      const parsed = parseFile(content, { ...config, fileName: file.name }, (text) => applyRules(text, rules));
       const withDupes = await checkDuplicates(parsed, selectedAccountId);
       await importRows(withDupes, { ...config, fileName: file.name });
     }
 
     setImportStep('done');
     await loadTransactions();
-  }, [selectedAccountId, selectedAccount, currentFileName, columnMapping, dateFormat, previewRows, importRows, pendingFiles, parseFile, applyRules, checkDuplicates, loadTransactions]);
+  }, [selectedAccountId, selectedAccount, currentFileName, columnMapping, dateFormat, previewRows, importRows, pendingFiles, parseFile, applyRules, rules, checkDuplicates, loadTransactions]);
 
   const resetImport = () => {
     setPendingFiles([]);

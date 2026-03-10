@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { RefreshCw, LogOut, User, Shield, Trash2, Database, RotateCcw } from 'lucide-react';
+import { RefreshCw, LogOut, User, Shield, Trash2, Database, RotateCcw, Eraser } from 'lucide-react';
 
 import { AppLayout } from '@/components/layout/AppLayout';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
@@ -37,6 +37,7 @@ export default function Settings() {
   const [isMigrating, setIsMigrating] = useState(false);
   const [migrationProgress, setMigrationProgress] = useState(0);
   const [isRecategorising, setIsRecategorising] = useState(false);
+  const [isCleaning, setIsCleaning] = useState(false);
 
   const handleSignOut = async () => {
     const { error } = await signOut();
@@ -362,6 +363,45 @@ export default function Settings() {
               >
                 <RotateCcw className="mr-2 h-4 w-4" />
                 {isRecategorising ? 'Processing…' : 'Re-apply Rules to Uncategorised'}
+              </Button>
+
+              <Button
+                variant="secondary"
+                disabled={!user || isCleaning}
+                onClick={async () => {
+                  if (!user) return;
+                  setIsCleaning(true);
+                  try {
+                    const cleanups = [
+                      { target: 'Restaurants, Cafes & Bars', stale: ['Restaurants & Cafes', 'Restaurants and Cafes', 'Dining'] },
+                      { target: 'Food Delivery & Taxi', stale: ['Food & Taxi', 'Grab', 'Takeaway'] },
+                      { target: 'Transfer — Internal', stale: ['Transfer', 'Internal Transfer'] },
+                      { target: 'Health & Fitness', stale: ['Health', 'Fitness'] },
+                      { target: 'Utilities & Bills', stale: ['Utilities', 'Bills'] },
+                      { target: 'Uncategorised', stale: ['Unknown', 'Other', 'Uncategorized'] },
+                    ];
+                    let totalUpdated = 0;
+                    for (const c of cleanups) {
+                      const { data, error } = await supabase
+                        .from('transactions')
+                        .update({ l1_category: c.target })
+                        .eq('user_id', user.id)
+                        .in('l1_category', c.stale)
+                        .select('id');
+                      if (error) throw error;
+                      totalUpdated += (data?.length ?? 0);
+                    }
+                    console.log(`[Cleanup] Updated ${totalUpdated} rows`);
+                    toast({ title: 'Stale categories cleaned', description: `${totalUpdated} rows updated` });
+                  } catch (err) {
+                    toast({ title: 'Cleanup failed', description: err instanceof Error ? err.message : 'Unknown error', variant: 'destructive' });
+                  } finally {
+                    setIsCleaning(false);
+                  }
+                }}
+              >
+                <Eraser className="mr-2 h-4 w-4" />
+                {isCleaning ? 'Cleaning…' : 'Clean Up Stale Categories'}
               </Button>
             </div>
           </CardContent>
