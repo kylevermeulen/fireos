@@ -20,9 +20,12 @@ async function fetchAllTransactions(userId: string, mode: CashflowMode): Promise
       .eq('user_id', userId)
       .range(from, from + BATCH - 1);
 
-    // Actual/cashflow mode: exclude synthetic rows
     if (mode === 'cashflow') {
+      // Actual mode: show real lump-sum payments, hide synthetic
       query = query.eq('is_synthetic', false);
+    } else {
+      // Amortised mode: show synthetic monthly rows, hide lump-sum sources
+      query = query.eq('is_amortised_source', false);
     }
 
     const { data, error } = await query;
