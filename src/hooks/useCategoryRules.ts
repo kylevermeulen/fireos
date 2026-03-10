@@ -138,7 +138,7 @@ const DEFAULT_RULES: Omit<CategoryRule, 'id'>[] = [
   { keyword: 'GOOGLE', l1_category: 'Subscriptions', l2_category: null, is_internal_transfer: false, needs_review: false, priority: 3 },
   { keyword: 'DROPBOX', l1_category: 'Subscriptions', l2_category: null, is_internal_transfer: false, needs_review: false, priority: 5 },
   { keyword: 'CANVA', l1_category: 'Subscriptions', l2_category: null, is_internal_transfer: false, needs_review: false, priority: 5 },
-  { keyword: 'OPENAI', l1_category: 'Subscriptions', l2_category: null, is_internal_transfer: false, needs_review: false, priority: 5 },
+  { keyword: 'OPENAI', l1_category: 'Subscriptions', l2_category: null, is_internal_transfer: false, needs_review: false, priority: 8 },
   { keyword: 'ANTHROPIC', l1_category: 'Subscriptions', l2_category: null, is_internal_transfer: false, needs_review: false, priority: 5 },
   { keyword: 'HEVY', l1_category: 'Subscriptions', l2_category: null, is_internal_transfer: false, needs_review: false, priority: 5 },
 
