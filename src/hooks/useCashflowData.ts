@@ -90,7 +90,15 @@ export function useCashflowData(mode: CashflowMode = 'amortised') {
     loadData();
   }, [loadData]);
 
-  return { rawTransactions, isLoading, error, reload: loadData };
+  const updateTransaction = useCallback((txId: string, newL1: string, isTransfer: boolean) => {
+    setRawTransactions(prev => prev.map(tx =>
+      tx.id === txId
+        ? { ...tx, L1: newL1, L2: 'Unknown', is_internal_transfer: isTransfer }
+        : tx
+    ));
+  }, []);
+
+  return { rawTransactions, isLoading, error, reload: loadData, updateTransaction };
 }
 
 export function useFilteredCashflow(
