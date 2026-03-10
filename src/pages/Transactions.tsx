@@ -13,7 +13,7 @@ import {
   Upload, Search, ArrowUp, ArrowDown, ArrowUpDown, Download, Check, FileSpreadsheet, Tag, X, AlertTriangle,
 } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
-import { useBankImporter, BankImportConfig, ImportPreviewRow, ColumnMapping, autoDetectColumns } from '@/hooks/useBankImporter';
+import { useBankImporter, BankImportConfig, ImportPreviewRow, ColumnMapping, autoDetectColumns, findHeaderRow } from '@/hooks/useBankImporter';
 import { useCategoryRules } from '@/hooks/useCategoryRules';
 import { CategoryRulesPanel } from '@/components/transactions/CategoryRulesPanel';
 import { InlineL1Editor, InlineL2Editor } from '@/components/transactions/InlineCategoryEditor';
