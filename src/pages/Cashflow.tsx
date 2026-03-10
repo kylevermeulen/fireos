@@ -18,100 +18,113 @@ import { CashflowMode, CategoryTotal } from '@/types/cashflow';
 import { useGlobalTimeRange } from '@/contexts/TimeRangeContext';
 
 export default function Cashflow() {
-  // Mode state
   const [mode, setMode] = useState<CashflowMode>('amortised');
-  
-  // Use global time range
   const { effectiveDateRange } = useGlobalTimeRange();
-  
-  // Data loading
   const { rawTransactions, isLoading, error, reload, updateTransaction } = useCashflowData(mode);
   
-  // Filter state
   const [l1Filter, setL1Filter] = useState<string | null>(null);
   const [l2Filter, setL2Filter] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [drilldownCategory, setDrilldownCategory] = useState<string | null>(null);
   const [selectedNode, setSelectedNode] = useState<{ type: string; value: string } | null>(null);
+  const [selectedTableCategory, setSelectedTableCategory] = useState<string | null>(null);
   
   const {
-    totalIncome,
-    totalSpending,
-    netPosition,
-    incomeByCategory,
-    spendingByCategory,
-    spendingByL1,
-    spending,
-    allL1Categories,
-    allL2Categories,
-    sanityStats,
+    totalIncome, totalSpending, netPosition,
+    incomeByCategory, spendingByCategory, spendingByL1,
+    spending, allL1Categories, allL2Categories, sanityStats,
   } = useFilteredCashflow(rawTransactions, effectiveDateRange, l1Filter, l2Filter, searchQuery);
 
-  // Get L2 spending for drilldown
+  // Get all external transactions (income + spending) for drilldown
+  const allExternalTransactions = useMemo(() => {
+    return rawTransactions.filter(tx => {
+      if (tx.date < effectiveDateRange.from || tx.date > effectiveDateRange.to) return false;
+      if (tx.is_internal_transfer || tx.L1 === 'Transfer — Internal') return false;
+      if (l1Filter && tx.L1 !== l1Filter) return false;
+      if (l2Filter && tx.L2 !== l2Filter) return false;
+      if (searchQuery) {
+        const q = searchQuery.toLowerCase();
+        if (!tx.counterparty.toLowerCase().includes(q) && !tx.description.toLowerCase().includes(q)) return false;
+      }
+      return true;
+    });
+  }, [rawTransactions, effectiveDateRange, l1Filter, l2Filter, searchQuery]);
+
   const spendingByL2ForDrilldown = useMemo((): CategoryTotal[] => {
     if (!drilldownCategory) return [];
-    
     const filtered = spending.filter(tx => tx.L1 === drilldownCategory);
     const map = new Map<string, { total: number; count: number }>();
-    
     filtered.forEach(tx => {
-      const key = tx.L2;
-      const existing = map.get(key) || { total: 0, count: 0 };
-      map.set(key, {
-        total: existing.total + tx.amount_aud,
-        count: existing.count + 1,
-      });
+      const existing = map.get(tx.L2) || { total: 0, count: 0 };
+      map.set(tx.L2, { total: existing.total + tx.amount_aud, count: existing.count + 1 });
     });
-    
     const l1Total = filtered.reduce((sum, tx) => sum + tx.amount_aud, 0);
-    
     return Array.from(map.entries())
       .map(([category, data]) => ({
-        category,
-        L1: drilldownCategory,
-        L2: category,
-        total: data.total,
-        count: data.count,
+        category, L1: drilldownCategory, L2: category,
+        total: data.total, count: data.count,
         percentage: l1Total > 0 ? data.total / l1Total : 0,
       }))
       .sort((a, b) => b.total - a.total);
   }, [spending, drilldownCategory]);
 
-  // Filtered transactions for drilldown table
+  // Filtered transactions for bottom table
   const drilldownTransactions = useMemo(() => {
-    if (!selectedNode) return spending;
-    
-    return spending.filter(tx => {
-      switch (selectedNode.type) {
-        case 'source_account':
-          return tx.source_account === selectedNode.value;
-        case 'L1':
-          return tx.L1 === selectedNode.value;
-        case 'L2':
-          return tx.L2 === selectedNode.value;
-        case 'counterparty':
-          return tx.counterparty === selectedNode.value;
-        default:
-          return true;
-      }
-    }).sort((a, b) => b.amount_aud - a.amount_aud);
-  }, [spending, selectedNode]);
+    let txs = allExternalTransactions;
+
+    // Sankey/node filter
+    if (selectedNode) {
+      txs = txs.filter(tx => {
+        switch (selectedNode.type) {
+          case 'source_account': return tx.source_account === selectedNode.value;
+          case 'L1': return tx.L1 === selectedNode.value;
+          case 'L2': return tx.L2 === selectedNode.value;
+          case 'counterparty': return tx.counterparty === selectedNode.value;
+          case 'income': return tx.L1 === 'Income' || tx.direction === 'in';
+          default: return true;
+        }
+      });
+    }
+
+    // Table category click filter
+    if (selectedTableCategory) {
+      txs = txs.filter(tx => tx.L1 === selectedTableCategory || tx.L2 === selectedTableCategory);
+    }
+
+    return txs.sort((a, b) => b.amount_aud - a.amount_aud);
+  }, [allExternalTransactions, selectedNode, selectedTableCategory]);
+
+  // Build title for drilldown table
+  const drilldownTitle = useMemo(() => {
+    if (selectedTableCategory) return `${selectedTableCategory} Transactions`;
+    if (selectedNode) return `Transactions: ${selectedNode.value}`;
+    return 'All External Transactions';
+  }, [selectedNode, selectedTableCategory]);
+
+  const handleTableCategoryClick = (category: string) => {
+    setSelectedTableCategory(prev => prev === category ? null : category);
+    // Clear sankey selection when clicking table
+    if (!selectedNode || selectedNode.value !== category) {
+      setSelectedNode(null);
+    }
+  };
 
   const handleDrillDown = (l1Category: string) => {
     setDrilldownCategory(l1Category);
     setSelectedNode({ type: 'L1', value: l1Category });
+    setSelectedTableCategory(null);
   };
 
   const handleBack = () => {
     setDrilldownCategory(null);
     setSelectedNode(null);
+    setSelectedTableCategory(null);
   };
 
   const handleNodeClick = (type: string, value: string) => {
     setSelectedNode({ type, value });
-    if (type === 'L1') {
-      setDrilldownCategory(value);
-    }
+    setSelectedTableCategory(null);
+    if (type === 'L1') setDrilldownCategory(value);
   };
 
   const handleClearFilters = () => {
@@ -120,6 +133,7 @@ export default function Cashflow() {
     setSearchQuery('');
     setSelectedNode(null);
     setDrilldownCategory(null);
+    setSelectedTableCategory(null);
   };
 
   if (isLoading) {
@@ -160,7 +174,6 @@ export default function Cashflow() {
   return (
     <AppLayout>
       <div className="space-y-6">
-        {/* Header */}
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
           <div>
             <h1 className="text-2xl font-bold tracking-tight">Cash Flow</h1>
@@ -171,7 +184,6 @@ export default function Cashflow() {
           <CashflowModeToggle mode={mode} onChange={setMode} />
         </div>
 
-        {/* Controls Row 1: Time selector and Search */}
         <div className="flex flex-col sm:flex-row sm:items-center gap-4">
           <GlobalTimeRangeSelector />
           <div className="relative flex-1 max-w-sm">
@@ -185,7 +197,6 @@ export default function Cashflow() {
           </div>
         </div>
 
-        {/* Controls Row 2: Category filters */}
         <CashflowCategoryFilters
           l1Categories={allL1Categories}
           l2Categories={allL2Categories}
@@ -196,14 +207,8 @@ export default function Cashflow() {
           onClear={handleClearFilters}
         />
 
-        {/* Summary */}
-        <CashflowSummary
-          totalIncome={totalIncome}
-          totalSpending={totalSpending}
-          netPosition={netPosition}
-        />
+        <CashflowSummary totalIncome={totalIncome} totalSpending={totalSpending} netPosition={netPosition} />
 
-        {/* Sankey Diagram */}
         <SankeyDiagram
           incomeByCategory={incomeByCategory}
           spendingByL1={spendingByL1}
@@ -216,13 +221,14 @@ export default function Cashflow() {
           onNodeClick={handleNodeClick}
         />
 
-        {/* Tables */}
         <div className="grid md:grid-cols-2 gap-4">
           <CashflowTable
             title="Income by Category"
             data={incomeByCategory}
             total={totalIncome}
             type="income"
+            selectedCategory={selectedTableCategory}
+            onCategoryClick={handleTableCategoryClick}
           />
           <CashflowTable
             title={drilldownCategory ? `${drilldownCategory} Breakdown` : "Spending by Category"}
@@ -232,20 +238,20 @@ export default function Cashflow() {
               : totalSpending
             }
             type="spending"
+            selectedCategory={selectedTableCategory}
+            onCategoryClick={handleTableCategoryClick}
           />
         </div>
 
-        {/* Transactions Drilldown Table */}
         <TransactionsTable
           transactions={drilldownTransactions}
-          title={selectedNode ? `Transactions: ${selectedNode.value}` : 'All External Transactions'}
-          onClearFilter={() => setSelectedNode(null)}
-          showClearFilter={!!selectedNode}
+          title={drilldownTitle}
+          onClearFilter={() => { setSelectedNode(null); setSelectedTableCategory(null); }}
+          showClearFilter={!!selectedNode || !!selectedTableCategory}
           onTransactionUpdated={reload}
           onOptimisticUpdate={updateTransaction}
         />
 
-        {/* Data Sanity Panel */}
         <DataSanityPanel stats={sanityStats} mode={mode} />
       </div>
     </AppLayout>
