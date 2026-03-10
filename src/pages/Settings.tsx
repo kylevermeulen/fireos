@@ -341,7 +341,7 @@ export default function Settings() {
                       from += BATCH;
                     }
 
-                    toast({ title: 'Re-categorisation complete', description: `${count} of ${uncategorised?.length ?? 0} transactions matched` });
+                    toast({ title: 'Re-categorisation complete', description: `Re-categorised ${matchCount} of ${totalRows} transactions` });
                   } catch (err) {
                     toast({ title: 'Re-categorisation failed', description: err instanceof Error ? err.message : 'Unknown error', variant: 'destructive' });
                   } finally {
