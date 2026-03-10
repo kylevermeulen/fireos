@@ -247,11 +247,12 @@ export function autoDetectColumns(headers: string[]): { mapping: ColumnMapping; 
     return { mapping, hasDebitCredit: false, detectedDateFormat: 'iso' as BankImportConfig['dateFormat'] };
   }
 
-  // Date: prefer "Settled Date" (actual settlement), then "Time", then generic "date"
+  // Date: prefer "Posted Date", "Settled Date" (actual settlement), then "Time", then generic "date"
+  const postedIdx = findCol(headers, ['posted date']);
   const settledIdx = findCol(headers, ['settled date']);
   const timeIdx = findCol(headers, ['time']);
   const dateIdx = findCol(headers, ['date', 'transaction date', 'trans date']);
-  mapping.date = settledIdx !== -1 ? settledIdx : (timeIdx !== -1 ? timeIdx : (dateIdx !== -1 ? dateIdx : 0));
+  mapping.date = postedIdx !== -1 ? postedIdx : (settledIdx !== -1 ? settledIdx : (timeIdx !== -1 ? timeIdx : (dateIdx !== -1 ? dateIdx : 0)));
 
   // Description
   const descIdx = findCol(headers, ['description', 'narrative', 'details', 'memo', 'transaction description']);
