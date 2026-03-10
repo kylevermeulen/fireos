@@ -808,6 +808,18 @@ export default function Transactions() {
             )}
           </CardContent>
         </Card>
+
+        <TransactionDetailModal
+          transaction={selectedTx ? {
+            ...selectedTx,
+            counterparty: (selectedTx as any).counterparty ?? null,
+          } : null}
+          open={!!selectedTx}
+          onOpenChange={(open) => { if (!open) setSelectedTx(null); }}
+          onOptimisticUpdate={handleCategoryUpdated}
+          onUpdate={loadTransactions}
+          linkedAccount={selectedTx ? (transferLinks.get(selectedTx.id) ?? null) : null}
+        />
       </div>
     </AppLayout>
   );
