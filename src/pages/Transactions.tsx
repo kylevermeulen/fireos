@@ -749,52 +749,61 @@ export default function Transactions() {
                          <SortableHeader field="l1">Category</SortableHeader>
                        </TableRow>
                      </TableHeader>
-                    <TableBody>
-                      {visible.map(t => (
-                        <TableRow key={t.id} className={t.needs_review ? 'bg-orange-500/5' : ''}>
-                          <TableCell className="text-xs whitespace-nowrap">{format(new Date(t.transaction_date), 'MMM d, yyyy')}</TableCell>
-                          <TableCell className="text-xs">{t.source_account_name ?? '—'}</TableCell>
-                          <TableCell className="text-xs max-w-[250px] truncate" title={t.description ?? ''}>
-                            {t.description ?? t.merchant ?? '—'}
-                          </TableCell>
-                          <TableCell className={cn('text-xs text-right font-medium', t.amount_aud >= 0 ? 'text-green-600' : 'text-destructive')}>
-                            {t.amount_aud >= 0 ? '+' : ''}{formatCompactCurrency(Math.abs(t.amount_aud))}
-                          </TableCell>
-                          <TableCell className="text-xs">
-                            <CategoryBadge
-                              transactionId={t.id}
-                              currentL1={t.l1_category}
-                              currentL2={t.l2_category}
-                              onOptimisticUpdate={handleCategoryUpdated}
-                              onUpdate={loadTransactions}
-                            />
-                          </TableCell>
-                          <TableCell>
-                            <div className="flex gap-1 flex-wrap">
-                              {t.needs_review && <Badge variant="outline" className="border-orange-500/30 text-orange-600 text-xs">Review</Badge>}
-                              {t.is_internal_transfer && <Badge variant="outline" className="text-muted-foreground text-xs">Transfer</Badge>}
-                              <TransferLinkBadge
-                                transaction={t}
-                                linkedAccount={transferLinks.get(t.id) ?? null}
-                              />
-                            </div>
-                          </TableCell>
-                        </TableRow>
-                      ))}
-                    </TableBody>
-                  </Table>
-                </ScrollArea>
-                <div className="flex items-center justify-between pt-3 border-t mt-3">
-                  <p className="text-xs text-muted-foreground">
-                    Showing {visible.length} of {sorted.length} transactions
-                    {sorted.length !== transactions.length && ` (${transactions.length} total)`}
-                  </p>
-                  {hasMore && (
-                    <Button variant="outline" size="sm" onClick={() => setVisibleCount(p => Math.min(p + PAGE_SIZE, sorted.length))}>
-                      Show more (+{Math.min(PAGE_SIZE, sorted.length - visibleCount)})
-                    </Button>
-                  )}
-                </div>
+                     <TableBody>
+                       {visible.map(t => {
+                         const isTransfer = t.is_internal_transfer;
+                         return (
+                           <TableRow
+                             key={t.id}
+                             className={cn(
+                               'cursor-pointer hover:bg-muted/50',
+                               isTransfer && 'opacity-50'
+                             )}
+                             onClick={() => setSelectedTx(t)}
+                           >
+                             <TableCell className={cn('text-xs whitespace-nowrap', isTransfer && 'text-muted-foreground')}>
+                               {format(new Date(t.transaction_date), 'MMM d, yyyy')}
+                             </TableCell>
+                             <TableCell className={cn('text-xs', isTransfer && 'text-muted-foreground')}>
+                               {t.source_account_name ?? '—'}
+                             </TableCell>
+                             <TableCell className={cn('text-xs max-w-[250px] truncate', isTransfer && 'text-muted-foreground')} title={t.description ?? ''}>
+                               {t.description ?? t.merchant ?? '—'}
+                             </TableCell>
+                             <TableCell className={cn(
+                               'text-xs text-right font-medium',
+                               isTransfer ? 'text-muted-foreground' : (t.amount_aud >= 0 ? 'text-green-600' : 'text-destructive')
+                             )}>
+                               {t.amount_aud >= 0 ? '+' : ''}{formatCompactCurrency(Math.abs(t.amount_aud))}
+                             </TableCell>
+                             <TableCell className="text-xs" onClick={(e) => e.stopPropagation()}>
+                               <CategoryBadge
+                                 transactionId={t.id}
+                                 currentL1={t.l1_category}
+                                 currentL2={t.l2_category}
+                                 description={t.description}
+                                 onOptimisticUpdate={handleCategoryUpdated}
+                                 onBulkUpdate={handleBulkUpdate}
+                                 onUpdate={loadTransactions}
+                               />
+                             </TableCell>
+                           </TableRow>
+                         );
+                       })}
+                     </TableBody>
+                   </Table>
+                 </ScrollArea>
+                 <div className="flex items-center justify-between pt-3 border-t mt-3">
+                   <p className="text-xs text-muted-foreground">
+                     Showing {visible.length} of {sorted.length} transactions
+                     {sorted.length !== transactions.length && ` (${transactions.length} total)`}
+                   </p>
+                   {hasMore && (
+                     <Button variant="outline" size="sm" onClick={() => setVisibleCount(p => Math.min(p + PAGE_SIZE, sorted.length))}>
+                       Show more (+{Math.min(PAGE_SIZE, sorted.length - visibleCount)})
+                     </Button>
+                   )}
+                 </div>
               </>
             )}
           </CardContent>
