@@ -38,7 +38,7 @@ export default function Settings() {
   const [migrationProgress, setMigrationProgress] = useState(0);
   const [isRecategorising, setIsRecategorising] = useState(false);
   const [isCleaning, setIsCleaning] = useState(false);
-
+  const [isFixingTransfers, setIsFixingTransfers] = useState(false);
   const handleSignOut = async () => {
     const { error } = await signOut();
     if (error) {
@@ -461,6 +461,61 @@ export default function Settings() {
               >
                 <Eraser className="mr-2 h-4 w-4" />
                 {isCleaning ? 'Cleaning…' : 'Clean Up Stale Categories'}
+              </Button>
+
+              <Button
+                variant="outline"
+                disabled={isFixingTransfers}
+                onClick={async () => {
+                  if (!user) return;
+                  setIsFixingTransfers(true);
+                  try {
+                    const { data, error } = await supabase.rpc('fix_miscategorised_transfers' as any, { p_user_id: user.id });
+                    if (error) {
+                      // Fallback: do it client-side in batches
+                      console.log('[FixTransfers] RPC not available, running client-side');
+                      const conditions = [
+                        { column: 'description', pattern: '%Osko Deposit%' },
+                        { column: 'description', pattern: '%PayID Payment Received%' },
+                        { column: 'description', pattern: '%Transfer from xx%' },
+                      ];
+                      let totalFixed = 0;
+                      for (const cond of conditions) {
+                        const { data: rows } = await supabase
+                          .from('transactions')
+                          .update({ l1_category: 'Transfer — Internal', l2_category: null, is_internal_transfer: true })
+                          .eq('user_id', user.id)
+                          .eq('l1_category', 'Income')
+                          .ilike(cond.column, cond.pattern)
+                          .select('id');
+                        totalFixed += (rows?.length ?? 0);
+                      }
+                      // Wise + Kyle/Richenda
+                      for (const name of ['Kyle Vermeulen', 'Richenda Vermeulen']) {
+                        const { data: rows } = await supabase
+                          .from('transactions')
+                          .update({ l1_category: 'Transfer — Internal', l2_category: null, is_internal_transfer: true })
+                          .eq('user_id', user.id)
+                          .eq('l1_category', 'Income')
+                          .eq('source_account_name', 'Wise')
+                          .eq('counterparty', name)
+                          .select('id');
+                        totalFixed += (rows?.length ?? 0);
+                      }
+                      console.log(`[FixTransfers] Fixed ${totalFixed} rows`);
+                      toast({ title: 'Miscategorised transfers fixed', description: `${totalFixed} rows updated` });
+                    } else {
+                      toast({ title: 'Miscategorised transfers fixed', description: 'Done' });
+                    }
+                  } catch (err) {
+                    toast({ title: 'Fix failed', description: err instanceof Error ? err.message : 'Unknown error', variant: 'destructive' });
+                  } finally {
+                    setIsFixingTransfers(false);
+                  }
+                }}
+              >
+                <RotateCcw className="mr-2 h-4 w-4" />
+                {isFixingTransfers ? 'Fixing…' : 'Fix Miscategorised Transfers'}
               </Button>
             </div>
           </CardContent>

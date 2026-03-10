@@ -23,7 +23,7 @@ const DEFAULT_RULES: Omit<CategoryRule, 'id'>[] = [
   { keyword: 'American Express Australia', l1_category: 'Transfer — Internal', l2_category: null, is_internal_transfer: true, needs_review: false, priority: 10 },
   { keyword: 'Loan Repayment S.311', l1_category: 'Transfer — Internal', l2_category: null, is_internal_transfer: true, needs_review: false, priority: 10 },
   { keyword: 'Repaymt A/C Tfr', l1_category: 'Transfer — Internal', l2_category: null, is_internal_transfer: true, needs_review: false, priority: 10 },
-  { keyword: 'PayID Payment Received', l1_category: 'Transfer — Internal', l2_category: null, is_internal_transfer: true, needs_review: false, priority: 10 },
+  { keyword: 'PayID Payment Received', l1_category: 'Transfer — Internal', l2_category: null, is_internal_transfer: true, needs_review: false, priority: 15 },
   { keyword: 'BPAY PAYMENT-THANK YOU', l1_category: 'Transfer — Internal', l2_category: null, is_internal_transfer: true, needs_review: false, priority: 10 },
   { keyword: 'ONLINE PAYMENT RECEIVED', l1_category: 'Transfer — Internal', l2_category: null, is_internal_transfer: true, needs_review: false, priority: 10 },
   { keyword: 'Transfer To Michael Ibrahim', l1_category: 'Transfer — Internal', l2_category: null, is_internal_transfer: true, needs_review: false, priority: 10 },
@@ -35,6 +35,8 @@ const DEFAULT_RULES: Omit<CategoryRule, 'id'>[] = [
   { keyword: 'GO-PAY CUSTOMER', l1_category: 'Transfer — Internal', l2_category: null, is_internal_transfer: true, needs_review: false, priority: 8 },
   { keyword: 'AshnaPocket', l1_category: 'Transfer — Internal', l2_category: null, is_internal_transfer: true, needs_review: false, priority: 8 },
   { keyword: 'Transfer to other Bank', l1_category: 'Transfer — Internal', l2_category: null, is_internal_transfer: true, needs_review: false, priority: 8 },
+  { keyword: 'Osko Deposit', l1_category: 'Transfer — Internal', l2_category: null, is_internal_transfer: true, needs_review: false, priority: 15 },
+  { keyword: 'Transfer from xx', l1_category: 'Transfer — Internal', l2_category: null, is_internal_transfer: true, needs_review: false, priority: 15 },
 
   // ── MORTGAGE ──
   { keyword: 'Loan Repayment S.311.2350776.01', l1_category: 'Mortgage', l2_category: 'Fixed Repayment', is_internal_transfer: false, needs_review: false, priority: 20 },
