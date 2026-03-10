@@ -297,31 +297,33 @@ export default function Settings() {
                 disabled={!user || isMigrating || isRecategorising}
                 onClick={async () => {
                   if (!user) return;
-                  setIsRecategorising(true);
-                  await fetchRules();
+                   setIsRecategorising(true);
+                   const freshRules = await fetchRules();
+                   console.log(`[Re-apply] Loaded ${freshRules.length} rules`);
 
-                  try {
-                    // Paginate through ALL uncategorised transactions
-                    const BATCH = 1000;
-                    let from = 0;
-                    let totalRows = 0;
-                    let matchCount = 0;
+                   try {
+                     // Paginate through ALL uncategorised transactions
+                     const BATCH = 1000;
+                     let from = 0;
+                     let totalRows = 0;
+                     let matchCount = 0;
 
-                    while (true) {
-                      const { data: batch, error } = await supabase
-                        .from('transactions')
-                        .select('id, description, merchant, counterparty')
-                        .eq('user_id', user.id)
-                        .eq('l1_category', 'Uncategorised')
-                        .range(from, from + BATCH - 1);
-                      if (error) throw error;
-                      if (!batch || batch.length === 0) break;
+                     while (true) {
+                       const { data: batch, error } = await supabase
+                         .from('transactions')
+                         .select('id, description, merchant, counterparty')
+                         .eq('user_id', user.id)
+                         .eq('l1_category', 'Uncategorised')
+                         .range(from, from + BATCH - 1);
+                       if (error) throw error;
+                       if (!batch || batch.length === 0) break;
 
-                      totalRows += batch.length;
+                       totalRows += batch.length;
+                       console.log(`[Re-apply] Batch from=${from}, rows=${batch.length}`);
 
-                      for (const tx of batch) {
-                        const text = `${tx.counterparty ?? ''} ${tx.description ?? ''}`.replace(/\s+/g, ' ').trim();
-                        const match = applyRules(text);
+                       for (const tx of batch) {
+                         const text = `${tx.counterparty ?? ''} ${tx.description ?? ''}`.replace(/\s+/g, ' ').trim();
+                         const match = applyRules(text, freshRules);
                         if (match) {
                           const { error: updateErr } = await supabase
                             .from('transactions')
@@ -341,7 +343,8 @@ export default function Settings() {
                       from += BATCH;
                     }
 
-                    toast({ title: 'Re-categorisation complete', description: `Re-categorised ${matchCount} of ${totalRows} transactions` });
+                     console.log(`[Re-apply] Done: matched ${matchCount} of ${totalRows} total uncategorised`);
+                     toast({ title: 'Re-categorisation complete', description: `Re-categorised ${matchCount} of ${totalRows} transactions` });
                   } catch (err) {
                     toast({ title: 'Re-categorisation failed', description: err instanceof Error ? err.message : 'Unknown error', variant: 'destructive' });
                   } finally {
