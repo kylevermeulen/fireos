@@ -24,7 +24,9 @@ import { BalanceInputForm } from '@/components/settings/BalanceInputForm';
 import { DataStatusCard } from '@/components/settings/DataStatusCard';
 import { useAuth } from '@/hooks/useAuth';
 import { useToast } from '@/hooks/use-toast';
+import { useCategoryRules } from '@/hooks/useCategoryRules';
 import { supabase } from '@/integrations/supabase/client';
+import { Progress } from '@/components/ui/progress';
 
 export default function Settings() {
   const { user, signOut } = useAuth();
