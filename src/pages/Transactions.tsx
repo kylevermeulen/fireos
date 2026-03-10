@@ -226,19 +226,8 @@ export default function Transactions() {
     }
     first.text().then(content => {
       setCsvContent(content);
-      // Parse header line properly (handles quoted headers with commas)
-      const firstLine = content.split(/\r?\n/)[0] ?? '';
-      const hdrs: string[] = [];
-      let cur = '', inQ = false;
-      for (let ci = 0; ci < firstLine.length; ci++) {
-        const ch = firstLine[ci];
-        if (ch === '"') { inQ = !inQ; continue; }
-        if (ch === ',' && !inQ) { hdrs.push(cur.trim()); cur = ''; continue; }
-        cur += ch;
-      }
-      hdrs.push(cur.trim());
-      // Remove BOM
-      if (hdrs[0]?.startsWith('\uFEFF')) hdrs[0] = hdrs[0].slice(1);
+      // Find real header row (handles preambles like Permata)
+      const { headerIndex, headers: hdrs } = findHeaderRow(content);
 
       setHeaders(hdrs);
 
