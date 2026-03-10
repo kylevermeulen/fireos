@@ -180,6 +180,12 @@ const DEFAULT_RULES: Omit<CategoryRule, 'id'>[] = [
   { keyword: 'CANCER COUNCIL', l1_category: 'Gifts & Donations', l2_category: null, is_internal_transfer: false, needs_review: false, priority: 5 },
   { keyword: 'SP GREENFLEET', l1_category: 'Gifts & Donations', l2_category: null, is_internal_transfer: false, needs_review: false, priority: 5 },
 
+  // ── CLEANER ──
+  { keyword: 'DESAK MADE SUARJANI', l1_category: 'Cleaner', l2_category: null, is_internal_transfer: false, needs_review: false, priority: 15 },
+
+  // ── NANNY ──
+  { keyword: 'AYU MARTYA', l1_category: 'Nanny', l2_category: null, is_internal_transfer: false, needs_review: false, priority: 15 },
+
   // ── INVESTING ──
   { keyword: 'CoinJar', l1_category: 'Investing', l2_category: null, is_internal_transfer: false, needs_review: false, priority: 5 },
 
