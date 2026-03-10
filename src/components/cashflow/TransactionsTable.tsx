@@ -51,7 +51,7 @@ interface TransactionsTableProps {
   onTransactionUpdated?: () => void;
 }
 
-type SortField = 'date' | 'source_account' | 'counterparty' | 'amount_aud' | 'L1' | 'L2';
+type SortField = 'date' | 'source_account' | 'amount_aud' | 'L1';
 type SortDirection = 'asc' | 'desc';
 
 interface SortState {
