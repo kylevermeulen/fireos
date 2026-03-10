@@ -608,13 +608,13 @@ export function useBankImporter() {
         // Needs review if rule says so, or if no categorization at all
         const needsReview = rule?.needs_review ?? (!rule && !row.mappedL1);
 
-        return {
+      return {
           user_id: user.id,
           account_id: config.accountId,
           transaction_date: row.date,
           amount_native: row.amount,
           amount_aud: row.amountAud,
-          currency: config.currency as 'AUD' | 'USD' | 'IDR',
+          currency: (config.isPermata ? 'IDR' : config.currency) as 'AUD' | 'USD' | 'IDR',
           transaction_type: (isTransfer ? 'transfer' : isIncome ? 'income' : 'expense') as any,
           description: row.description,
           merchant: row.counterparty || null,
