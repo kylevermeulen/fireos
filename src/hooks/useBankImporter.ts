@@ -240,6 +240,10 @@ export function autoDetectColumns(headers: string[]): { mapping: ColumnMapping; 
     if (sourceFeeIdx !== -1) mapping.feeAmount = sourceFeeIdx;
     if (sourceCurrencyIdx !== -1) mapping.sourceCurrency = sourceCurrencyIdx;
 
+    // Exchange rate column for currency conversion
+    const exchangeRateIdx = findCol(headers, ['exchange rate']);
+    if (exchangeRateIdx !== -1) mapping.exchangeRate = exchangeRateIdx;
+
     // Counterparty: use the "other" party
     if (targetNameIdx !== -1) mapping.counterparty = targetNameIdx;
 
