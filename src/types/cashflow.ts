@@ -3,6 +3,7 @@
 export type CashflowMode = 'amortised' | 'cashflow';
 
 export interface CashflowTransaction {
+  id: string;
   date: Date;
   source_account: string;
   counterparty: string;

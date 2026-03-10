@@ -40,6 +40,7 @@ async function fetchAllTransactions(userId: string, mode: CashflowMode): Promise
           ? 'in' : 'out';
 
       all.push({
+        id: row.id,
         date,
         source_account: row.source_account_name || '',
         counterparty: row.counterparty || '',
