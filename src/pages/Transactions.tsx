@@ -125,6 +125,12 @@ export default function Transactions() {
     return Array.from(set).sort();
   }, [transactions]);
 
+  const transferLinks = useMemo(() => buildTransferLinks(transactions), [transactions]);
+
+  const handleCategoryUpdated = useCallback((id: string, l1: string | null, l2: string | null) => {
+    setTransactions(prev => prev.map(t => t.id === id ? { ...t, l1_category: l1, l2_category: l2 } : t));
+  }, []);
+
   const filtered = useMemo(() => {
     return transactions.filter(t => {
       if (accountFilter !== 'all' && t.source_account_name !== accountFilter) return false;
