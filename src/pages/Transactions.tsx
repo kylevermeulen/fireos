@@ -17,7 +17,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { useBankImporter, BankImportConfig, ImportPreviewRow, ColumnMapping, autoDetectColumns, findHeaderRow } from '@/hooks/useBankImporter';
 import { useCategoryRules } from '@/hooks/useCategoryRules';
 import { CategoryRulesPanel } from '@/components/transactions/CategoryRulesPanel';
-import { InlineL1Editor, InlineL2Editor } from '@/components/transactions/InlineCategoryEditor';
+import { InlineL1Editor, InlineL2Editor, L1_DISPLAY_ORDER } from '@/components/transactions/InlineCategoryEditor';
 import { TransferLinkBadge, buildTransferLinks } from '@/components/transactions/TransferLinkBadge';
 import { formatCompactCurrency } from '@/lib/format';
 import { cn } from '@/lib/utils';
