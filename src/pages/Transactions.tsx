@@ -17,7 +17,8 @@ import { supabase } from '@/integrations/supabase/client';
 import { useBankImporter, BankImportConfig, ImportPreviewRow, ColumnMapping, autoDetectColumns, findHeaderRow } from '@/hooks/useBankImporter';
 import { useCategoryRules } from '@/hooks/useCategoryRules';
 import { CategoryRulesPanel } from '@/components/transactions/CategoryRulesPanel';
-import { InlineL1Editor, InlineL2Editor, L1_DISPLAY_ORDER } from '@/components/transactions/InlineCategoryEditor';
+import { L1_DISPLAY_ORDER } from '@/components/transactions/InlineCategoryEditor';
+import { CategoryBadge } from '@/components/transactions/CategoryBadge';
 import { TransferLinkBadge, buildTransferLinks } from '@/components/transactions/TransferLinkBadge';
 import { formatCompactCurrency } from '@/lib/format';
 import { cn } from '@/lib/utils';
@@ -152,9 +153,9 @@ export default function Transactions() {
 
   const transferLinks = useMemo(() => buildTransferLinks(transactions), [transactions]);
 
-  const handleCategoryUpdated = useCallback((id: string, l1: string | null, l2: string | null) => {
-    setTransactions(prev => prev.map(t => t.id === id ? { ...t, l1_category: l1, l2_category: l2 } : t));
-  }, []);
+  const handleCategoryUpdated = useCallback(() => {
+    loadTransactions();
+  }, [loadTransactions]);
 
   const filtered = useMemo(() => {
     return transactions.filter(t => {
@@ -731,8 +732,7 @@ export default function Transactions() {
                         <SortableHeader field="account">Account</SortableHeader>
                         <SortableHeader field="description">Description</SortableHeader>
                         <SortableHeader field="amount" className="text-right">Amount</SortableHeader>
-                        <SortableHeader field="l1">L1</SortableHeader>
-                        <SortableHeader field="l2">L2</SortableHeader>
+                        <SortableHeader field="l1">Category</SortableHeader>
                         <TableHead className="sticky top-0 bg-background w-16">Flags</TableHead>
                       </TableRow>
                     </TableHeader>
@@ -747,19 +747,12 @@ export default function Transactions() {
                           <TableCell className={cn('text-xs text-right font-medium', t.amount_aud >= 0 ? 'text-green-600' : 'text-destructive')}>
                             {t.amount_aud >= 0 ? '+' : ''}{formatCompactCurrency(Math.abs(t.amount_aud))}
                           </TableCell>
-                          <TableCell className="text-xs p-0">
-                            <InlineL1Editor
-                              transactionId={t.id}
-                              currentL1={t.l1_category}
-                              onUpdated={handleCategoryUpdated}
-                            />
-                          </TableCell>
-                          <TableCell className="text-xs p-0">
-                            <InlineL2Editor
+                          <TableCell className="text-xs">
+                            <CategoryBadge
                               transactionId={t.id}
                               currentL1={t.l1_category}
                               currentL2={t.l2_category}
-                              onUpdated={handleCategoryUpdated}
+                              onUpdate={handleCategoryUpdated}
                             />
                           </TableCell>
                           <TableCell>
