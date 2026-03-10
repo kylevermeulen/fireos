@@ -35,7 +35,7 @@ async function fetchAllTransactions(userId: string, mode: CashflowMode): Promise
 
       const amountAud = Number(row.amount_aud) || 0;
       const direction: 'in' | 'out' = 
-        row.transaction_type === 'income' || row.transaction_type === 'dividends_interest' || amountAud > 0
+        (row.transaction_type === 'income' || row.transaction_type === 'dividends_interest' || row.l1_category === 'Income')
           ? 'in' : 'out';
 
       all.push({
