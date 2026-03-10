@@ -143,7 +143,11 @@ export default function Transactions() {
   const allL1Categories = useMemo(() => {
     const set = new Set<string>();
     transactions.forEach(t => { if (t.l1_category) set.add(t.l1_category); });
-    return Array.from(set).sort();
+    return Array.from(set).sort((a, b) => {
+      const ai = L1_DISPLAY_ORDER.indexOf(a);
+      const bi = L1_DISPLAY_ORDER.indexOf(b);
+      return (ai === -1 ? 999 : ai) - (bi === -1 ? 999 : bi);
+    });
   }, [transactions]);
 
   const transferLinks = useMemo(() => buildTransferLinks(transactions), [transactions]);
