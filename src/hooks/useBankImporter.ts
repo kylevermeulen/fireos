@@ -264,10 +264,11 @@ export function autoDetectColumns(headers: string[]): { mapping: ColumnMapping; 
   const amountIdx = findCol(headers, ['amount', 'value']);
   mapping.amount = subtotalIdx !== -1 ? subtotalIdx : (totalIdx !== -1 ? totalIdx : (amountIdx !== -1 ? amountIdx : 2));
 
-  // Debit/Credit
+  // Debit/Credit (separate numeric columns — NOT a sign indicator like "Credit/Debit")
+  // Only match if they are distinct columns (not the same "Credit/Debit" column)
   const debitIdx = findCol(headers, ['debit']);
   const creditIdx = findCol(headers, ['credit']);
-  if (debitIdx !== -1 && creditIdx !== -1) {
+  if (debitIdx !== -1 && creditIdx !== -1 && debitIdx !== creditIdx && debitIdx !== signIdx && creditIdx !== signIdx) {
     mapping.debit = debitIdx;
     mapping.credit = creditIdx;
     hasDebitCredit = true;
