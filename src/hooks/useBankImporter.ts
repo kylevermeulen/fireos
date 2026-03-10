@@ -18,6 +18,8 @@ export interface ColumnMapping {
   feeAmount?: number;      // Fee column to add to the source amount for total
   sourceCurrency?: number; // Source currency column
   signColumn?: number;     // Credit/Debit indicator column (e.g. Permata)
+  exchangeRate?: number;   // Exchange rate column (e.g. Wise)
+  expectedColumns?: number; // Expected number of columns (for anchoring from end)
 }
 
 export interface BankImportConfig {
@@ -34,7 +36,8 @@ export interface BankImportConfig {
 export interface ImportPreviewRow {
   date: string;
   description: string;
-  amount: number;
+  amount: number;          // Native currency amount
+  amountAud: number;       // AUD-converted amount
   counterparty: string;
   matchedRule: CategoryRule | null;
   bankCategory: string;
@@ -42,9 +45,9 @@ export interface ImportPreviewRow {
   mappedL2: string | null;
   isTransfer: boolean;
   isDuplicate: boolean;
-  dupeType: 'none' | 'same-account' | 'cross-account';  // Why it was flagged
-  dupeAccountName: string | null;  // Which account has the matching tx
-  excluded: boolean;               // User can toggle this
+  dupeType: 'none' | 'same-account' | 'cross-account';
+  dupeAccountName: string | null;
+  excluded: boolean;
   rawLine: string;
 }
 
@@ -237,6 +240,10 @@ export function autoDetectColumns(headers: string[]): { mapping: ColumnMapping; 
     if (sourceFeeIdx !== -1) mapping.feeAmount = sourceFeeIdx;
     if (sourceCurrencyIdx !== -1) mapping.sourceCurrency = sourceCurrencyIdx;
 
+    // Exchange rate column for currency conversion
+    const exchangeRateIdx = findCol(headers, ['exchange rate']);
+    if (exchangeRateIdx !== -1) mapping.exchangeRate = exchangeRateIdx;
+
     // Counterparty: use the "other" party
     if (targetNameIdx !== -1) mapping.counterparty = targetNameIdx;
 
@@ -293,6 +300,11 @@ export function autoDetectColumns(headers: string[]): { mapping: ColumnMapping; 
   const isPermata = findCol(headers, ['posted date']) !== -1 && signIdx !== -1;
   const detectedDateFormat: BankImportConfig['dateFormat'] = isPermata ? 'mm/dd/yyyy' : 'auto';
 
+  // For Permata, record expected column count so we can anchor from end
+  if (isPermata) {
+    mapping.expectedColumns = headers.length;
+  }
+
   return { mapping, hasDebitCredit, detectedDateFormat };
 }
 
@@ -321,7 +333,23 @@ export function useBankImporter() {
     }
 
     for (let i = config.skipRows; i < lines.length; i++) {
-      const cells = parseCsvLine(lines[i]);
+      let cells = parseCsvLine(lines[i]);
+
+      // Permata fix: description may contain commas, causing extra cells.
+      // Anchor amount and sign columns from the END of the row.
+      const expected = config.columnMapping.expectedColumns;
+      if (expected != null && cells.length > expected) {
+        // The extra cells are from commas in the description.
+        // Merge the overflow cells back into the description column (index 1).
+        const overflow = cells.length - expected;
+        const descParts = cells.slice(1, 1 + overflow + 1);
+        cells = [
+          cells[0],
+          descParts.join(', '),
+          ...cells.slice(1 + overflow + 1),
+        ];
+      }
+
       const dateStr = cells[config.columnMapping.date] ?? '';
       const description = cells[config.columnMapping.description] ?? '';
       const counterparty = config.columnMapping.counterparty != null
@@ -349,6 +377,8 @@ export function useBankImporter() {
       }
 
       // If direction column exists (Wise format), use it to determine sign
+      let sourceCurrency = '';
+      let exchangeRate: number | null = null;
       if (config.columnMapping.direction != null && amount != null) {
         const direction = (cells[config.columnMapping.direction] ?? '').toUpperCase().trim();
         // Add fee back to get full source amount
@@ -358,8 +388,15 @@ export function useBankImporter() {
         }
         amount = Math.abs(amount);
         if (direction === 'OUT') amount = -amount;
-        // NEUTRAL direction (e.g. currency conversion) — treat as outflow
         if (direction === 'NEUTRAL') amount = -amount;
+
+        // Capture source currency and exchange rate for AUD conversion
+        if (config.columnMapping.sourceCurrency != null) {
+          sourceCurrency = (cells[config.columnMapping.sourceCurrency] ?? '').toUpperCase().trim();
+        }
+        if (config.columnMapping.exchangeRate != null) {
+          exchangeRate = parseAmount(cells[config.columnMapping.exchangeRate] ?? '');
+        }
       }
 
       // If sign column exists (Permata format: "Credit/Debit"), use it to determine sign
@@ -373,6 +410,18 @@ export function useBankImporter() {
 
       const parsedDate = parseDate(dateStr, dateFormat);
       if (!parsedDate || amount == null) continue;
+
+      // Convert to AUD: if source currency is not AUD/USD, use exchange rate
+      let amountAud = amount;
+      if (sourceCurrency && sourceCurrency !== 'AUD') {
+        if (sourceCurrency === 'IDR' && exchangeRate && exchangeRate > 0) {
+          // IDR → AUD: divide by exchange rate (rate is IDR per 1 AUD)
+          amountAud = amount / exchangeRate;
+        } else if (sourceCurrency === 'USD') {
+          // USD amounts stored as-is, conversion happens elsewhere
+          amountAud = amount;
+        }
+      }
 
       // Detect internal transfers from bank tx type
       const isTransfer = bankTxType.toLowerCase() === 'transfer';
@@ -388,6 +437,7 @@ export function useBankImporter() {
         date: parsedDate,
         description: counterparty || description,
         amount,
+        amountAud,
         counterparty,
         matchedRule,
         bankCategory,
@@ -539,7 +589,7 @@ export function useBankImporter() {
           account_id: config.accountId,
           transaction_date: row.date,
           amount_native: row.amount,
-          amount_aud: row.amount,
+          amount_aud: row.amountAud,
           currency: config.currency as 'AUD' | 'USD' | 'IDR',
           transaction_type: (isTransfer ? 'transfer' : isIncome ? 'income' : 'expense') as any,
           description: row.description,
