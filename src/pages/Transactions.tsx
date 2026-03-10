@@ -262,7 +262,7 @@ export default function Transactions() {
       fileName: currentFileName ?? 'unknown.csv',
       columnMapping,
       dateFormat,
-      skipRows: 1,
+      skipRows: headerIndex + 1,
       invertSign,
     };
     const parsed = parseFile(csvContent, config, applyRules);
