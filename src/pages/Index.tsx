@@ -143,9 +143,9 @@ export default function Index() {
           <Card>
             <CardContent className="flex flex-col items-center justify-center py-12">
               <Wallet className="h-12 w-12 text-muted-foreground mb-4" />
-              <h3 className="text-lg font-medium mb-2">Processing Data</h3>
+              <h3 className="text-lg font-medium mb-2">No Data Yet</h3>
               <p className="text-muted-foreground text-center max-w-md">
-                Your data is being processed. Refresh the page if this persists.
+                Import your financial data via Settings to see your dashboard.
               </p>
             </CardContent>
           </Card>
