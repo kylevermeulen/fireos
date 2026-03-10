@@ -31,6 +31,7 @@ export function BankImporter() {
   const [useSeparateDebitCredit, setUseSeparateDebitCredit] = useState(false);
   const [importDone, setImportDone] = useState(false);
   const [step, setStep] = useState<'select' | 'map' | 'preview' | 'done'>('select');
+  const [headerIndex, setHeaderIndex] = useState(0);
 
   // Fetch accounts
   useEffect(() => {

@@ -85,6 +85,7 @@ export default function Transactions() {
   const [importStep, setImportStep] = useState<'idle' | 'map' | 'preview' | 'done'>('idle');
   const [dragActive, setDragActive] = useState(false);
   const [invertSign, setInvertSign] = useState(false);
+  const [headerIndex, setHeaderIndex] = useState(0);
 
   const selectedAccount = accounts.find(a => a.id === selectedAccountId);
 
