@@ -241,6 +241,7 @@ export default function Cashflow() {
           title={selectedNode ? `Transactions: ${selectedNode.value}` : 'All External Transactions'}
           onClearFilter={() => setSelectedNode(null)}
           showClearFilter={!!selectedNode}
+          onTransactionUpdated={reload}
         />
 
         {/* Data Sanity Panel */}
