@@ -372,6 +372,37 @@ export default function Transactions() {
             <p className="text-muted-foreground">Import, categorize, and review bank transactions</p>
           </div>
           <div className="flex gap-2">
+            <AlertDialog>
+              <AlertDialogTrigger asChild>
+                <Button variant="outline" size="sm" className="text-destructive">
+                  <Trash2 className="h-4 w-4 mr-1" />
+                  Delete by Account
+                </Button>
+              </AlertDialogTrigger>
+              <AlertDialogContent>
+                <AlertDialogHeader>
+                  <AlertDialogTitle>Delete Transactions by Account</AlertDialogTitle>
+                  <AlertDialogDescription>
+                    This will permanently delete ALL transactions for the selected account. Use this to clear bad imports before re-uploading.
+                  </AlertDialogDescription>
+                </AlertDialogHeader>
+                <Select value={deleteAccountId} onValueChange={setDeleteAccountId}>
+                  <SelectTrigger><SelectValue placeholder="Select account to clear" /></SelectTrigger>
+                  <SelectContent>
+                    {accounts.map(a => {
+                      const count = transactions.filter(t => t.source_account_name === a.name).length;
+                      return <SelectItem key={a.id} value={a.id}>{a.name} ({count} txns)</SelectItem>;
+                    })}
+                  </SelectContent>
+                </Select>
+                <AlertDialogFooter>
+                  <AlertDialogCancel>Cancel</AlertDialogCancel>
+                  <AlertDialogAction onClick={handleDeleteByAccount} disabled={!deleteAccountId || isDeleting} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
+                    {isDeleting ? 'Deleting...' : 'Delete All'}
+                  </AlertDialogAction>
+                </AlertDialogFooter>
+              </AlertDialogContent>
+            </AlertDialog>
             <Button variant="outline" size="sm" onClick={handleExport} disabled={sorted.length === 0}>
               <Download className="h-4 w-4 mr-1" />
               Export
