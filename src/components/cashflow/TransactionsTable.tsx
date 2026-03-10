@@ -7,6 +7,7 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import { X, ArrowUp, ArrowDown, ArrowUpDown, Download } from 'lucide-react';
 import { formatCompactCurrency } from '@/lib/format';
 import { CashflowTransaction } from '@/types/cashflow';
+import { CategoryBadge } from '@/components/transactions/CategoryBadge';
 import { cn } from '@/lib/utils';
 
 function escapeCsvField(value: string): string {
