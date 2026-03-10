@@ -227,8 +227,8 @@ export default function Transactions() {
     }
     first.text().then(content => {
       setCsvContent(content);
-      // Find real header row (handles preambles like Permata)
-      const { headerIndex, headers: hdrs } = findHeaderRow(content);
+      const { headerIndex: hIdx, headers: hdrs } = findHeaderRow(content);
+      setHeaderIndex(hIdx);
 
       setHeaders(hdrs);
 

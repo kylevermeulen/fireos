@@ -49,7 +49,8 @@ export function BankImporter() {
     file.text().then(content => {
       setCsvContent(content);
       // Find real header row (handles preambles like Permata)
-      const { headerIndex, headers: hdrs } = findHeaderRow(content);
+      const { headerIndex: hIdx, headers: hdrs } = findHeaderRow(content);
+      setHeaderIndex(hIdx);
       setHeaders(hdrs);
 
       // Use the robust autoDetectColumns from useBankImporter
