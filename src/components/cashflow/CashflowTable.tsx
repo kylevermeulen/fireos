@@ -2,15 +2,18 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { formatCompactCurrency, formatPercent } from '@/lib/format';
 import { CategoryTotal } from '@/types/cashflow';
+import { cn } from '@/lib/utils';
 
 interface CashflowTableProps {
   title: string;
   data: CategoryTotal[];
   total: number;
   type: 'income' | 'spending';
+  selectedCategory?: string | null;
+  onCategoryClick?: (category: string) => void;
 }
 
-export function CashflowTable({ title, data, total, type }: CashflowTableProps) {
+export function CashflowTable({ title, data, total, type, selectedCategory, onCategoryClick }: CashflowTableProps) {
   if (data.length === 0) {
     return (
       <Card>
@@ -47,7 +50,14 @@ export function CashflowTable({ title, data, total, type }: CashflowTableProps) 
             </TableHeader>
             <TableBody>
               {data.map((item, i) => (
-                <TableRow key={i}>
+                <TableRow
+                  key={i}
+                  className={cn(
+                    'cursor-pointer hover:bg-muted/50',
+                    selectedCategory === item.category && 'bg-primary/10'
+                  )}
+                  onClick={() => onCategoryClick?.(item.category)}
+                >
                   <TableCell className="font-medium">
                     <div className="flex items-center gap-2">
                       <div

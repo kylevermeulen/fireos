@@ -19,7 +19,8 @@ import { useCategoryRules } from '@/hooks/useCategoryRules';
 import { CategoryRulesPanel } from '@/components/transactions/CategoryRulesPanel';
 import { L1_DISPLAY_ORDER } from '@/components/transactions/InlineCategoryEditor';
 import { CategoryBadge } from '@/components/transactions/CategoryBadge';
-import { TransferLinkBadge, buildTransferLinks } from '@/components/transactions/TransferLinkBadge';
+import { buildTransferLinks } from '@/components/transactions/TransferLinkBadge';
+import { TransactionDetailModal } from '@/components/transactions/TransactionDetailModal';
 import { formatCompactCurrency } from '@/lib/format';
 import { cn } from '@/lib/utils';
 
@@ -60,6 +61,7 @@ function escapeCsvField(value: string): string {
 
 export default function Transactions() {
   // ── Data state ──
+  const [selectedTx, setSelectedTx] = useState<DbTransaction | null>(null);
   const [transactions, setTransactions] = useState<DbTransaction[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [accounts, setAccounts] = useState<Account[]>([]);
@@ -156,6 +158,14 @@ export default function Transactions() {
   const handleCategoryUpdated = useCallback((txId: string, newL1: string, isTransfer: boolean) => {
     setTransactions(prev => prev.map(t => 
       t.id === txId 
+        ? { ...t, l1_category: newL1, l2_category: null, is_internal_transfer: isTransfer }
+        : t
+    ));
+  }, []);
+
+  const handleBulkUpdate = useCallback((ids: string[], newL1: string, isTransfer: boolean) => {
+    setTransactions(prev => prev.map(t =>
+      ids.includes(t.id)
         ? { ...t, l1_category: newL1, l2_category: null, is_internal_transfer: isTransfer }
         : t
     ));
@@ -736,60 +746,80 @@ export default function Transactions() {
                         <SortableHeader field="account">Account</SortableHeader>
                         <SortableHeader field="description">Description</SortableHeader>
                         <SortableHeader field="amount" className="text-right">Amount</SortableHeader>
-                        <SortableHeader field="l1">Category</SortableHeader>
-                        <TableHead className="sticky top-0 bg-background w-16">Flags</TableHead>
-                      </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                      {visible.map(t => (
-                        <TableRow key={t.id} className={t.needs_review ? 'bg-orange-500/5' : ''}>
-                          <TableCell className="text-xs whitespace-nowrap">{format(new Date(t.transaction_date), 'MMM d, yyyy')}</TableCell>
-                          <TableCell className="text-xs">{t.source_account_name ?? '—'}</TableCell>
-                          <TableCell className="text-xs max-w-[250px] truncate" title={t.description ?? ''}>
-                            {t.description ?? t.merchant ?? '—'}
-                          </TableCell>
-                          <TableCell className={cn('text-xs text-right font-medium', t.amount_aud >= 0 ? 'text-green-600' : 'text-destructive')}>
-                            {t.amount_aud >= 0 ? '+' : ''}{formatCompactCurrency(Math.abs(t.amount_aud))}
-                          </TableCell>
-                          <TableCell className="text-xs">
-                            <CategoryBadge
-                              transactionId={t.id}
-                              currentL1={t.l1_category}
-                              currentL2={t.l2_category}
-                              onOptimisticUpdate={handleCategoryUpdated}
-                              onUpdate={loadTransactions}
-                            />
-                          </TableCell>
-                          <TableCell>
-                            <div className="flex gap-1 flex-wrap">
-                              {t.needs_review && <Badge variant="outline" className="border-orange-500/30 text-orange-600 text-xs">Review</Badge>}
-                              {t.is_internal_transfer && <Badge variant="outline" className="text-muted-foreground text-xs">Transfer</Badge>}
-                              <TransferLinkBadge
-                                transaction={t}
-                                linkedAccount={transferLinks.get(t.id) ?? null}
-                              />
-                            </div>
-                          </TableCell>
-                        </TableRow>
-                      ))}
-                    </TableBody>
-                  </Table>
-                </ScrollArea>
-                <div className="flex items-center justify-between pt-3 border-t mt-3">
-                  <p className="text-xs text-muted-foreground">
-                    Showing {visible.length} of {sorted.length} transactions
-                    {sorted.length !== transactions.length && ` (${transactions.length} total)`}
-                  </p>
-                  {hasMore && (
-                    <Button variant="outline" size="sm" onClick={() => setVisibleCount(p => Math.min(p + PAGE_SIZE, sorted.length))}>
-                      Show more (+{Math.min(PAGE_SIZE, sorted.length - visibleCount)})
-                    </Button>
-                  )}
-                </div>
+                         <SortableHeader field="l1">Category</SortableHeader>
+                       </TableRow>
+                     </TableHeader>
+                     <TableBody>
+                       {visible.map(t => {
+                         const isTransfer = t.is_internal_transfer;
+                         return (
+                           <TableRow
+                             key={t.id}
+                             className={cn(
+                               'cursor-pointer hover:bg-muted/50',
+                               isTransfer && 'opacity-50'
+                             )}
+                             onClick={() => setSelectedTx(t)}
+                           >
+                             <TableCell className={cn('text-xs whitespace-nowrap', isTransfer && 'text-muted-foreground')}>
+                               {format(new Date(t.transaction_date), 'MMM d, yyyy')}
+                             </TableCell>
+                             <TableCell className={cn('text-xs', isTransfer && 'text-muted-foreground')}>
+                               {t.source_account_name ?? '—'}
+                             </TableCell>
+                             <TableCell className={cn('text-xs max-w-[250px] truncate', isTransfer && 'text-muted-foreground')} title={t.description ?? ''}>
+                               {t.description ?? t.merchant ?? '—'}
+                             </TableCell>
+                             <TableCell className={cn(
+                               'text-xs text-right font-medium',
+                               isTransfer ? 'text-muted-foreground' : (t.amount_aud >= 0 ? 'text-green-600' : 'text-destructive')
+                             )}>
+                               {t.amount_aud >= 0 ? '+' : ''}{formatCompactCurrency(Math.abs(t.amount_aud))}
+                             </TableCell>
+                             <TableCell className="text-xs" onClick={(e) => e.stopPropagation()}>
+                               <CategoryBadge
+                                 transactionId={t.id}
+                                 currentL1={t.l1_category}
+                                 currentL2={t.l2_category}
+                                 description={t.description}
+                                 onOptimisticUpdate={handleCategoryUpdated}
+                                 onBulkUpdate={handleBulkUpdate}
+                                 onUpdate={loadTransactions}
+                               />
+                             </TableCell>
+                           </TableRow>
+                         );
+                       })}
+                     </TableBody>
+                   </Table>
+                 </ScrollArea>
+                 <div className="flex items-center justify-between pt-3 border-t mt-3">
+                   <p className="text-xs text-muted-foreground">
+                     Showing {visible.length} of {sorted.length} transactions
+                     {sorted.length !== transactions.length && ` (${transactions.length} total)`}
+                   </p>
+                   {hasMore && (
+                     <Button variant="outline" size="sm" onClick={() => setVisibleCount(p => Math.min(p + PAGE_SIZE, sorted.length))}>
+                       Show more (+{Math.min(PAGE_SIZE, sorted.length - visibleCount)})
+                     </Button>
+                   )}
+                 </div>
               </>
             )}
           </CardContent>
         </Card>
+
+        <TransactionDetailModal
+          transaction={selectedTx ? {
+            ...selectedTx,
+            counterparty: (selectedTx as any).counterparty ?? null,
+          } : null}
+          open={!!selectedTx}
+          onOpenChange={(open) => { if (!open) setSelectedTx(null); }}
+          onOptimisticUpdate={handleCategoryUpdated}
+          onUpdate={loadTransactions}
+          linkedAccount={selectedTx ? (transferLinks.get(selectedTx.id) ?? null) : null}
+        />
       </div>
     </AppLayout>
   );
