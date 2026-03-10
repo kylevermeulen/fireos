@@ -59,6 +59,8 @@ const CATEGORY_TREE: Record<string, string[]> = {
   'Insurance': [],
   'Gifts & Donations': [],
   'Childcare & Nanny': [],
+  'Cleaner': [],
+  'Nanny': [],
   'Taxes & Govt Fees': [],
   'Professional Services': [],
   'Transfer — Internal': [],
