@@ -303,13 +303,24 @@ export function useFilteredCashflow(
       .sort((a, b) => b.total - a.total);
   }, [spending, totalSpending]);
 
-  // All unique L1 categories
+  // All unique L1 categories — sorted by canonical display order
   const allL1Categories = useMemo(() => {
+    const L1_DISPLAY_ORDER = [
+      'Food Delivery & Taxi', 'Restaurants, Cafes & Bars', 'Groceries', 'Mortgage', 'Rent',
+      'Utilities & Bills', 'Household', 'School Fees', 'Family', 'Personal Care', 'Shopping',
+      'Health & Fitness', 'Entertainment', 'Subscriptions', 'Travel', 'Ntegrity', 'Income',
+      'Investing', 'Insurance', 'Donations', 'Taxes & Govt Fees', 'Professional Services',
+      'Transfer — Internal', 'Indonesia — Uncategorised', 'Australia — Uncategorised', 'Uncategorised',
+    ];
     const set = new Set<string>();
     transactions.forEach(tx => {
       if (tx.L1) set.add(tx.L1);
     });
-    return Array.from(set).sort();
+    return Array.from(set).sort((a, b) => {
+      const ai = L1_DISPLAY_ORDER.indexOf(a);
+      const bi = L1_DISPLAY_ORDER.indexOf(b);
+      return (ai === -1 ? 999 : ai) - (bi === -1 ? 999 : bi);
+    });
   }, [transactions]);
 
   // All unique L2 categories

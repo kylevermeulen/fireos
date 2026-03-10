@@ -3,32 +3,72 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 
+// Canonical L1 display order
+export const L1_DISPLAY_ORDER = [
+  'Food Delivery & Taxi',
+  'Restaurants, Cafes & Bars',
+  'Groceries',
+  'Mortgage',
+  'Rent',
+  'Utilities & Bills',
+  'Household',
+  'School Fees',
+  'Family',
+  'Personal Care',
+  'Shopping',
+  'Health & Fitness',
+  'Entertainment',
+  'Subscriptions',
+  'Travel',
+  'Ntegrity',
+  'Income',
+  'Investing',
+  'Insurance',
+  'Donations',
+  'Taxes & Govt Fees',
+  'Professional Services',
+  'Transfer — Internal',
+  'Indonesia — Uncategorised',
+  'Australia — Uncategorised',
+  'Uncategorised',
+];
+
 // Master L1 → L2 category map
 const CATEGORY_TREE: Record<string, string[]> = {
-  'Income': ['Salary', 'Interest', 'Dividends', 'Government', 'Business', 'Other'],
-  'Living Expenses': ['Groceries', 'Eating Out', 'Phone', 'Internet', 'Other'],
-  'Housing': ['Rent', 'Mortgage', 'Utilities', 'Homewares', 'Maintenance', 'Other'],
-  'Transport': ['Fuel', 'Public Transport', 'Rideshare', 'Parking', 'Car', 'Other'],
-  'Lifestyle': ['Entertainment', 'Subscriptions', 'Travel', 'Health & Fitness', 'Personal Care', 'Clothing', 'Gifts', 'Books & Media', 'Pets', 'Other'],
-  'Health': ['Medical', 'Pharmacy', 'Dental', 'Other'],
-  'Insurance': ['Health Insurance', 'Car Insurance', 'Home Insurance', 'Life', 'Other'],
-  'Education': ['Tuition', 'Books', 'Other'],
-  'Shopping': ['Household', 'Electronics', 'Shopping', 'Other'],
-  'Groceries': ['Groceries', 'Other'],
-  'Restaurants & Cafes': ['Restaurants & Cafes', 'Other'],
-  'Entertainment': ['Entertainment', 'Other'],
-  'Donations': ['Donations', 'Other'],
-  'Professional Services': ['Professional Services', 'Accounting', 'Legal', 'Other'],
-  'Utilities & Bills': ['Utilities & Bills', 'Government', 'Other'],
-  'Transfer': ['Internal Transfer', 'Other'],
-  'Indonesia Rent': ['Indonesia Rent (Prepaid)', 'Other'],
-  'Travel': ['Flights', 'Accommodation', 'Travel', 'Other'],
-  'Tax': ['Income Tax', 'Other'],
-  'Fees': ['Bank Fees', 'Other'],
+  'Food Delivery & Taxi': [],
+  'Restaurants, Cafes & Bars': [],
+  'Groceries': [],
+  'Mortgage': ['Fixed Repayment', 'Variable Repayment', 'Interest'],
+  'Rent': ['Bali Rent'],
+  'Utilities & Bills': ['Australia Utility & Bill', 'Indonesia Utility & Bills'],
+  'Household': ['Maintenance', 'Staff', 'Homewares'],
+  'School Fees': [],
+  'Family': ['Kids Activities', 'Kids Pocket Money'],
+  'Personal Care': [],
+  'Shopping': [],
+  'Health & Fitness': [],
+  'Entertainment': [],
+  'Subscriptions': [],
+  'Travel': ['Flights', 'Accommodation'],
+  'Ntegrity': [],
+  'Income': ['Salary', 'Rental Income', 'Other'],
+  'Investing': [],
+  'Insurance': [],
+  'Donations': [],
+  'Taxes & Govt Fees': [],
+  'Professional Services': [],
+  'Transfer — Internal': [],
+  'Indonesia — Uncategorised': [],
+  'Australia — Uncategorised': [],
   'Uncategorised': [],
 };
 
-const L1_OPTIONS = Object.keys(CATEGORY_TREE).sort();
+// Sort L1 options by canonical display order, with unknown categories at the end
+const L1_OPTIONS = Object.keys(CATEGORY_TREE).sort((a, b) => {
+  const ai = L1_DISPLAY_ORDER.indexOf(a);
+  const bi = L1_DISPLAY_ORDER.indexOf(b);
+  return (ai === -1 ? 999 : ai) - (bi === -1 ? 999 : bi);
+});
 
 interface InlineCategoryEditorProps {
   transactionId: string;

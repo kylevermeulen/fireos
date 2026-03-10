@@ -14,70 +14,171 @@ export interface CategoryRule {
 
 // Default rules to seed
 const DEFAULT_RULES: Omit<CategoryRule, 'id'>[] = [
-  // Insurance
-  { keyword: 'HCFHEALTH', l1_category: 'Insurance', l2_category: 'Health Insurance', is_internal_transfer: false, needs_review: false, priority: 0 },
+  // ── TRANSFER — INTERNAL ──
+  { keyword: 'Transfer To R J VERMEULEN', l1_category: 'Transfer — Internal', l2_category: null, is_internal_transfer: true, needs_review: false, priority: 10 },
+  { keyword: 'Transfer To K C VERMEULEN', l1_category: 'Transfer — Internal', l2_category: null, is_internal_transfer: true, needs_review: false, priority: 10 },
+  { keyword: 'Transfer To Kyle Vermeulen', l1_category: 'Transfer — Internal', l2_category: null, is_internal_transfer: true, needs_review: false, priority: 10 },
+  { keyword: 'Offset Transfer Richenda Vermeulen', l1_category: 'Transfer — Internal', l2_category: null, is_internal_transfer: true, needs_review: false, priority: 10 },
+  { keyword: 'Wise Australia Pty Ltd', l1_category: 'Transfer — Internal', l2_category: null, is_internal_transfer: true, needs_review: false, priority: 10 },
+  { keyword: 'American Express Australia', l1_category: 'Transfer — Internal', l2_category: null, is_internal_transfer: true, needs_review: false, priority: 10 },
+  { keyword: 'Loan Repayment S.311', l1_category: 'Transfer — Internal', l2_category: null, is_internal_transfer: true, needs_review: false, priority: 10 },
+  { keyword: 'Repaymt A/C Tfr', l1_category: 'Transfer — Internal', l2_category: null, is_internal_transfer: true, needs_review: false, priority: 10 },
+  { keyword: 'PayID Payment Received', l1_category: 'Transfer — Internal', l2_category: null, is_internal_transfer: true, needs_review: false, priority: 10 },
+  { keyword: 'BPAY PAYMENT-THANK YOU', l1_category: 'Transfer — Internal', l2_category: null, is_internal_transfer: true, needs_review: false, priority: 10 },
+  { keyword: 'ONLINE PAYMENT RECEIVED', l1_category: 'Transfer — Internal', l2_category: null, is_internal_transfer: true, needs_review: false, priority: 10 },
+  { keyword: 'Transfer To Michael Ibrahim', l1_category: 'Transfer — Internal', l2_category: null, is_internal_transfer: true, needs_review: false, priority: 10 },
+  { keyword: 'Transfer To Hannah Schwartz', l1_category: 'Transfer — Internal', l2_category: null, is_internal_transfer: true, needs_review: false, priority: 10 },
+  { keyword: 'Wise Sydney', l1_category: 'Transfer — Internal', l2_category: null, is_internal_transfer: true, needs_review: false, priority: 10 },
+  { keyword: 'TARIK TUNAI ATM', l1_category: 'Transfer — Internal', l2_category: null, is_internal_transfer: true, needs_review: false, priority: 10 },
+  { keyword: 'TRF INCOMING BIFAST', l1_category: 'Transfer — Internal', l2_category: null, is_internal_transfer: true, needs_review: false, priority: 10 },
+  { keyword: 'PB KE RICHENDA', l1_category: 'Transfer — Internal', l2_category: null, is_internal_transfer: true, needs_review: false, priority: 10 },
+  { keyword: 'GO-PAY CUSTOMER', l1_category: 'Transfer — Internal', l2_category: null, is_internal_transfer: true, needs_review: false, priority: 8 },
+  { keyword: 'AshnaPocket', l1_category: 'Transfer — Internal', l2_category: null, is_internal_transfer: true, needs_review: false, priority: 8 },
+  { keyword: 'Transfer to other Bank', l1_category: 'Transfer — Internal', l2_category: null, is_internal_transfer: true, needs_review: false, priority: 8 },
 
-  // Groceries
-  { keyword: 'WOOLWORTHS', l1_category: 'Groceries', l2_category: 'Groceries', is_internal_transfer: false, needs_review: false, priority: 0 },
-  { keyword: 'MARLEYSPOON', l1_category: 'Groceries', l2_category: 'Groceries', is_internal_transfer: false, needs_review: false, priority: 0 },
-  { keyword: 'HAPPYFRESH', l1_category: 'Groceries', l2_category: 'Groceries', is_internal_transfer: false, needs_review: false, priority: 0 },
+  // ── MORTGAGE ──
+  { keyword: 'Loan Repayment S.311.2350776.01', l1_category: 'Mortgage', l2_category: 'Fixed Repayment', is_internal_transfer: false, needs_review: false, priority: 20 },
+  { keyword: 'Loan Repayment S.311.2350776.00', l1_category: 'Mortgage', l2_category: 'Variable Repayment', is_internal_transfer: false, needs_review: false, priority: 20 },
+  { keyword: 'Loan A/C Fee', l1_category: 'Utilities & Bills', l2_category: 'Australia Utility & Bill', is_internal_transfer: false, needs_review: false, priority: 15 },
 
-  // Shopping
-  { keyword: 'BUNNINGS', l1_category: 'Shopping', l2_category: 'Household', is_internal_transfer: false, needs_review: false, priority: 0 },
-  { keyword: 'FRANK GREEN', l1_category: 'Shopping', l2_category: 'Shopping', is_internal_transfer: false, needs_review: false, priority: 0 },
-  { keyword: 'AUSPOST', l1_category: 'Shopping', l2_category: 'Shopping', is_internal_transfer: false, needs_review: false, priority: 0 },
-  { keyword: 'EMMA JANE HARDEE', l1_category: 'Shopping', l2_category: 'Shopping', is_internal_transfer: false, needs_review: false, priority: 0 },
-  { keyword: 'TOKOPEDIA', l1_category: 'Shopping', l2_category: 'Shopping', is_internal_transfer: false, needs_review: false, priority: 0 },
-  { keyword: 'TECHNO COMPUTER', l1_category: 'Shopping', l2_category: 'Shopping', is_internal_transfer: false, needs_review: false, priority: 0 },
+  // ── RENT ──
+  { keyword: 'Bali Rent (Amortized', l1_category: 'Rent', l2_category: 'Bali Rent', is_internal_transfer: false, needs_review: false, priority: 20 },
+  { keyword: 'APT KF 642 TAMBLINGAN', l1_category: 'Rent', l2_category: 'Bali Rent', is_internal_transfer: false, needs_review: false, priority: 15 },
 
-  // Entertainment
-  { keyword: 'CRUNCHLABS', l1_category: 'Entertainment', l2_category: 'Entertainment', is_internal_transfer: false, needs_review: false, priority: 0 },
-  { keyword: 'OZ LOTTERIES', l1_category: 'Entertainment', l2_category: 'Entertainment', is_internal_transfer: false, needs_review: false, priority: 0 },
+  // ── INCOME ──
+  { keyword: 'NTEGRITY PTY LTD', l1_category: 'Income', l2_category: 'Salary', is_internal_transfer: false, needs_review: false, priority: 20 },
+  { keyword: 'JC Port Phillip', l1_category: 'Income', l2_category: 'Rental Income', is_internal_transfer: false, needs_review: false, priority: 20 },
+  { keyword: 'MCARE BENEFITS', l1_category: 'Income', l2_category: 'Other', is_internal_transfer: false, needs_review: false, priority: 10 },
+  { keyword: 'PENDAPATAN BUNGA', l1_category: 'Income', l2_category: 'Other', is_internal_transfer: false, needs_review: false, priority: 10 },
 
-  // Donations
-  { keyword: 'STROKE FOUNDATION', l1_category: 'Donations', l2_category: 'Donations', is_internal_transfer: false, needs_review: false, priority: 0 },
-  { keyword: 'OCRF', l1_category: 'Donations', l2_category: 'Donations', is_internal_transfer: false, needs_review: false, priority: 0 },
-  { keyword: 'DEMENTIA AUSTRALIA', l1_category: 'Donations', l2_category: 'Donations', is_internal_transfer: false, needs_review: false, priority: 0 },
-  { keyword: 'CANCER COUNCIL', l1_category: 'Donations', l2_category: 'Donations', is_internal_transfer: false, needs_review: false, priority: 0 },
-  { keyword: 'SP GREENFLEET', l1_category: 'Donations', l2_category: 'Donations', is_internal_transfer: false, needs_review: false, priority: 0 },
+  // ── FOOD DELIVERY & TAXI ──
+  { keyword: 'GRAB', l1_category: 'Food Delivery & Taxi', l2_category: null, is_internal_transfer: false, needs_review: false, priority: 5 },
+  { keyword: 'GOJEK', l1_category: 'Food Delivery & Taxi', l2_category: null, is_internal_transfer: false, needs_review: false, priority: 5 },
+  { keyword: 'GO-FOOD', l1_category: 'Food Delivery & Taxi', l2_category: null, is_internal_transfer: false, needs_review: false, priority: 8 },
+  { keyword: 'GOCAR', l1_category: 'Food Delivery & Taxi', l2_category: null, is_internal_transfer: false, needs_review: false, priority: 8 },
+  { keyword: 'Bluebird', l1_category: 'Food Delivery & Taxi', l2_category: null, is_internal_transfer: false, needs_review: false, priority: 5 },
+  { keyword: 'Purchase Visa+', l1_category: 'Food Delivery & Taxi', l2_category: null, is_internal_transfer: false, needs_review: false, priority: 2 },
 
-  // Professional Services
-  { keyword: 'FINDEX', l1_category: 'Professional Services', l2_category: 'Professional Services', is_internal_transfer: false, needs_review: false, priority: 0 },
-  { keyword: 'MR GREG MALHAM', l1_category: 'Professional Services', l2_category: 'Professional Services', is_internal_transfer: false, needs_review: false, priority: 0 },
-  { keyword: 'CRYPTOTAXCALCULATOR', l1_category: 'Professional Services', l2_category: 'Professional Services', is_internal_transfer: false, needs_review: false, priority: 0 },
-  { keyword: 'AIRTASKER', l1_category: 'Professional Services', l2_category: 'Professional Services', is_internal_transfer: false, needs_review: false, priority: 0 },
+  // ── RESTAURANTS, CAFES & BARS ──
+  { keyword: 'QR PAYMENT', l1_category: 'Restaurants, Cafes & Bars', l2_category: null, is_internal_transfer: false, needs_review: false, priority: 3 },
+  { keyword: 'PURCHASE ALTO', l1_category: 'Restaurants, Cafes & Bars', l2_category: null, is_internal_transfer: false, needs_review: false, priority: 5 },
+  { keyword: 'PURCHASE DI PESCADO', l1_category: 'Restaurants, Cafes & Bars', l2_category: null, is_internal_transfer: false, needs_review: false, priority: 5 },
+  { keyword: 'PURCHASE', l1_category: 'Restaurants, Cafes & Bars', l2_category: null, is_internal_transfer: false, needs_review: false, priority: 1 },
+  { keyword: 'HANOI ROSE', l1_category: 'Restaurants, Cafes & Bars', l2_category: null, is_internal_transfer: false, needs_review: false, priority: 5 },
+  { keyword: 'KTOWN HOSPITALITY', l1_category: 'Restaurants, Cafes & Bars', l2_category: null, is_internal_transfer: false, needs_review: false, priority: 5 },
 
-  // Utilities & Bills  
-  { keyword: 'AUSPOST Mail Redirect', l1_category: 'Utilities & Bills', l2_category: 'Utilities & Bills', is_internal_transfer: false, needs_review: false, priority: 10 }, // Higher priority than generic AUSPOST
-  { keyword: 'DOKU', l1_category: 'Utilities & Bills', l2_category: 'Utilities & Bills', is_internal_transfer: false, needs_review: false, priority: 0 },
-  { keyword: 'GLOBALXTREME', l1_category: 'Utilities & Bills', l2_category: 'Utilities & Bills', is_internal_transfer: false, needs_review: false, priority: 0 },
+  // ── GROCERIES ──
+  { keyword: 'WOOLWORTHS', l1_category: 'Groceries', l2_category: null, is_internal_transfer: false, needs_review: false, priority: 5 },
+  { keyword: 'COLES', l1_category: 'Groceries', l2_category: null, is_internal_transfer: false, needs_review: false, priority: 5 },
+  { keyword: 'MARLEYSPOON', l1_category: 'Groceries', l2_category: null, is_internal_transfer: false, needs_review: false, priority: 5 },
+  { keyword: 'HAPPYFRESH', l1_category: 'Groceries', l2_category: null, is_internal_transfer: false, needs_review: false, priority: 5 },
+  { keyword: 'QR PAYMENT CPM ALFA', l1_category: 'Groceries', l2_category: null, is_internal_transfer: false, needs_review: false, priority: 10 },
+  { keyword: 'QR PAYMENT INDOMARET', l1_category: 'Groceries', l2_category: null, is_internal_transfer: false, needs_review: false, priority: 10 },
+  { keyword: 'Coco Mart', l1_category: 'Groceries', l2_category: null, is_internal_transfer: false, needs_review: false, priority: 5 },
+  { keyword: 'POPULAR MARKET', l1_category: 'Groceries', l2_category: null, is_internal_transfer: false, needs_review: false, priority: 5 },
+  { keyword: 'PEPITO MARKET', l1_category: 'Groceries', l2_category: null, is_internal_transfer: false, needs_review: false, priority: 5 },
+  { keyword: 'GOURMET GARAGE', l1_category: 'Groceries', l2_category: null, is_internal_transfer: false, needs_review: false, priority: 5 },
+  { keyword: 'SPARKLE FRUIT', l1_category: 'Groceries', l2_category: null, is_internal_transfer: false, needs_review: false, priority: 5 },
 
-  // Transport
-  { keyword: 'COPP PARKING', l1_category: 'Transport', l2_category: 'Transport', is_internal_transfer: false, needs_review: false, priority: 0 },
+  // ── UTILITIES & BILLS ──
+  { keyword: 'AUSPOST Mail Redirect', l1_category: 'Utilities & Bills', l2_category: 'Australia Utility & Bill', is_internal_transfer: false, needs_review: false, priority: 15 },
+  { keyword: 'GLOBALXTREME', l1_category: 'Utilities & Bills', l2_category: 'Indonesia Utility & Bills', is_internal_transfer: false, needs_review: false, priority: 5 },
+  { keyword: 'DOKU', l1_category: 'Utilities & Bills', l2_category: 'Indonesia Utility & Bills', is_internal_transfer: false, needs_review: false, priority: 5 },
+  { keyword: 'Biaya Adm Bulanan', l1_category: 'Utilities & Bills', l2_category: 'Indonesia Utility & Bills', is_internal_transfer: false, needs_review: false, priority: 5 },
+  { keyword: 'PB Biaya SMS', l1_category: 'Utilities & Bills', l2_category: 'Indonesia Utility & Bills', is_internal_transfer: false, needs_review: false, priority: 5 },
+  { keyword: 'TRF BIFAST KE LISA MICHELLE CROSBY', l1_category: 'Utilities & Bills', l2_category: 'Indonesia Utility & Bills', is_internal_transfer: false, needs_review: false, priority: 15 },
+  { keyword: 'LISA MICHELLE CROSBY', l1_category: 'Utilities & Bills', l2_category: 'Indonesia Utility & Bills', is_internal_transfer: false, needs_review: false, priority: 8 },
 
-  // Travel
-  { keyword: 'LOTTE TRAVEL RETAIL', l1_category: 'Travel', l2_category: 'Travel', is_internal_transfer: false, needs_review: false, priority: 0 },
-  { keyword: 'MIDSTAY', l1_category: 'Travel', l2_category: 'Travel', is_internal_transfer: false, needs_review: false, priority: 0 },
+  // ── HOUSEHOLD ──
+  { keyword: 'AIRTASKER', l1_category: 'Household', l2_category: 'Maintenance', is_internal_transfer: false, needs_review: false, priority: 5 },
+  { keyword: 'Relay Tenancy', l1_category: 'Household', l2_category: 'Maintenance', is_internal_transfer: false, needs_review: false, priority: 5 },
+  { keyword: 'BUNNINGS', l1_category: 'Household', l2_category: 'Maintenance', is_internal_transfer: false, needs_review: false, priority: 5 },
+  { keyword: 'DWI RISNAWATI', l1_category: 'Household', l2_category: 'Staff', is_internal_transfer: false, needs_review: false, priority: 10 },
+  { keyword: 'TRF BIFAST KE DWI', l1_category: 'Household', l2_category: 'Staff', is_internal_transfer: false, needs_review: false, priority: 12 },
 
-  // Health & Fitness
-  { keyword: 'QI HEALING MASSAGE', l1_category: 'Health & Fitness', l2_category: 'Health & Fitness', is_internal_transfer: false, needs_review: false, priority: 0 },
-  { keyword: 'GETMOSH', l1_category: 'Health & Fitness', l2_category: 'Health & Fitness', is_internal_transfer: false, needs_review: false, priority: 0 },
+  // ── SCHOOL FEES ──
+  { keyword: 'BOUNDLESS LIFE', l1_category: 'School Fees', l2_category: null, is_internal_transfer: false, needs_review: false, priority: 10 },
+  { keyword: 'LORETO MANDEVILLE', l1_category: 'School Fees', l2_category: null, is_internal_transfer: false, needs_review: false, priority: 10 },
+  { keyword: 'INTEGRAPAY*CLARKCHILDCN', l1_category: 'School Fees', l2_category: null, is_internal_transfer: false, needs_review: false, priority: 10 },
+  { keyword: 'PORT MELBOURNE PRIMARY', l1_category: 'School Fees', l2_category: null, is_internal_transfer: false, needs_review: false, priority: 10 },
+  { keyword: 'KIDDOCARE', l1_category: 'School Fees', l2_category: null, is_internal_transfer: false, needs_review: false, priority: 10 },
+  { keyword: 'CLARK CHILD', l1_category: 'School Fees', l2_category: null, is_internal_transfer: false, needs_review: false, priority: 10 },
 
-  // Restaurants & Cafes
-  { keyword: 'HANOI ROSE', l1_category: 'Restaurants & Cafes', l2_category: 'Restaurants & Cafes', is_internal_transfer: false, needs_review: false, priority: 0 },
-  { keyword: 'KTOWN HOSPITALITY', l1_category: 'Restaurants & Cafes', l2_category: 'Restaurants & Cafes', is_internal_transfer: false, needs_review: false, priority: 0 },
+  // ── FAMILY ──
+  { keyword: 'THE HOOP SCHOOL', l1_category: 'Family', l2_category: 'Kids Activities', is_internal_transfer: false, needs_review: false, priority: 8 },
+  { keyword: 'BABY BUNTING', l1_category: 'Family', l2_category: null, is_internal_transfer: false, needs_review: false, priority: 5 },
+  { keyword: '842 TOY WORLD', l1_category: 'Family', l2_category: null, is_internal_transfer: false, needs_review: false, priority: 5 },
+  { keyword: 'Micah Pocket', l1_category: 'Family', l2_category: 'Kids Pocket Money', is_internal_transfer: false, needs_review: false, priority: 10 },
+  { keyword: 'Ash Monthly Spend', l1_category: 'Family', l2_category: 'Kids Pocket Money', is_internal_transfer: false, needs_review: false, priority: 10 },
 
-  // Internal Transfers
-  { keyword: 'GO-PAY CUSTOMER', l1_category: 'Transfer', l2_category: 'Internal Transfer', is_internal_transfer: true, needs_review: false, priority: 0 },
+  // ── SHOPPING ──
+  { keyword: 'TOKOPEDIA', l1_category: 'Shopping', l2_category: null, is_internal_transfer: false, needs_review: false, priority: 5 },
+  { keyword: 'TECHNO COMPUTER', l1_category: 'Shopping', l2_category: null, is_internal_transfer: false, needs_review: false, priority: 5 },
+  { keyword: 'FRANK GREEN', l1_category: 'Shopping', l2_category: null, is_internal_transfer: false, needs_review: false, priority: 5 },
+  { keyword: 'EMMA JANE HARDEE', l1_category: 'Shopping', l2_category: null, is_internal_transfer: false, needs_review: false, priority: 5 },
+  { keyword: 'AUSPOST', l1_category: 'Shopping', l2_category: null, is_internal_transfer: false, needs_review: false, priority: 3 },
 
-  // Indonesia Rent (migrated from hardcoded Wise rent fix)
-  { keyword: 'LISA MICHELLE CROSBY', l1_category: 'Indonesia Rent', l2_category: 'Indonesia Rent (Prepaid)', is_internal_transfer: false, needs_review: false, priority: 0 },
-  { keyword: 'ADYATAMA', l1_category: 'Indonesia Rent', l2_category: 'Indonesia Rent (Prepaid)', is_internal_transfer: false, needs_review: false, priority: 0 },
-  { keyword: 'BALIMOVES', l1_category: 'Indonesia Rent', l2_category: 'Indonesia Rent (Prepaid)', is_internal_transfer: false, needs_review: false, priority: 0 },
-  { keyword: 'INVOICE 001', l1_category: 'Indonesia Rent', l2_category: 'Indonesia Rent (Prepaid)', is_internal_transfer: false, needs_review: false, priority: 0 },
+  // ── HEALTH & FITNESS ──
+  { keyword: 'HCFHEALTH', l1_category: 'Health & Fitness', l2_category: null, is_internal_transfer: false, needs_review: false, priority: 5 },
+  { keyword: 'GETMOSH', l1_category: 'Health & Fitness', l2_category: null, is_internal_transfer: false, needs_review: false, priority: 5 },
+  { keyword: 'QI HEALING MASSAGE', l1_category: 'Health & Fitness', l2_category: null, is_internal_transfer: false, needs_review: false, priority: 5 },
 
-  // Needs review
-  { keyword: 'CENTRELINK', l1_category: 'Utilities & Bills', l2_category: 'Government', is_internal_transfer: false, needs_review: true, priority: 0 },
+  // ── PERSONAL CARE ──
+  { keyword: 'THE SHAMPOO LOUNGE', l1_category: 'Personal Care', l2_category: null, is_internal_transfer: false, needs_review: false, priority: 5 },
+
+  // ── ENTERTAINMENT ──
+  { keyword: 'CRUNCHLABS', l1_category: 'Entertainment', l2_category: null, is_internal_transfer: false, needs_review: false, priority: 5 },
+  { keyword: 'OZ LOTTERIES', l1_category: 'Entertainment', l2_category: null, is_internal_transfer: false, needs_review: false, priority: 5 },
+
+  // ── SUBSCRIPTIONS ──
+  { keyword: 'NETFLIX', l1_category: 'Subscriptions', l2_category: null, is_internal_transfer: false, needs_review: false, priority: 5 },
+  { keyword: 'SPOTIFY', l1_category: 'Subscriptions', l2_category: null, is_internal_transfer: false, needs_review: false, priority: 5 },
+  { keyword: 'ADOBE', l1_category: 'Subscriptions', l2_category: null, is_internal_transfer: false, needs_review: false, priority: 5 },
+  { keyword: 'APPLE.COM/BILL', l1_category: 'Subscriptions', l2_category: null, is_internal_transfer: false, needs_review: false, priority: 5 },
+  { keyword: 'GOOGLE', l1_category: 'Subscriptions', l2_category: null, is_internal_transfer: false, needs_review: false, priority: 3 },
+  { keyword: 'DROPBOX', l1_category: 'Subscriptions', l2_category: null, is_internal_transfer: false, needs_review: false, priority: 5 },
+  { keyword: 'CANVA', l1_category: 'Subscriptions', l2_category: null, is_internal_transfer: false, needs_review: false, priority: 5 },
+  { keyword: 'OPENAI', l1_category: 'Subscriptions', l2_category: null, is_internal_transfer: false, needs_review: false, priority: 5 },
+  { keyword: 'ANTHROPIC', l1_category: 'Subscriptions', l2_category: null, is_internal_transfer: false, needs_review: false, priority: 5 },
+  { keyword: 'HEVY', l1_category: 'Subscriptions', l2_category: null, is_internal_transfer: false, needs_review: false, priority: 5 },
+
+  // ── TRAVEL ──
+  { keyword: 'LOTTE TRAVEL RETAIL', l1_category: 'Travel', l2_category: null, is_internal_transfer: false, needs_review: false, priority: 5 },
+  { keyword: 'MIDSTAY', l1_category: 'Travel', l2_category: 'Accommodation', is_internal_transfer: false, needs_review: false, priority: 5 },
+  { keyword: 'AIRBNB', l1_category: 'Travel', l2_category: 'Accommodation', is_internal_transfer: false, needs_review: false, priority: 5 },
+  { keyword: 'BOOKING.COM', l1_category: 'Travel', l2_category: 'Accommodation', is_internal_transfer: false, needs_review: false, priority: 5 },
+
+  // ── INSURANCE ──
+  { keyword: 'TAL LIFE INSURANCE', l1_category: 'Insurance', l2_category: null, is_internal_transfer: false, needs_review: false, priority: 5 },
+  { keyword: 'YOUI', l1_category: 'Insurance', l2_category: null, is_internal_transfer: false, needs_review: false, priority: 5 },
+  { keyword: 'AAMI', l1_category: 'Insurance', l2_category: null, is_internal_transfer: false, needs_review: false, priority: 5 },
+  { keyword: 'WORLD NOMADS', l1_category: 'Insurance', l2_category: null, is_internal_transfer: false, needs_review: false, priority: 5 },
+
+  // ── TAXES & GOVT FEES ──
+  { keyword: 'TAX OFFICE PAYMENTS', l1_category: 'Taxes & Govt Fees', l2_category: null, is_internal_transfer: false, needs_review: false, priority: 10 },
+  { keyword: 'ANNUAL CARD FEE', l1_category: 'Taxes & Govt Fees', l2_category: null, is_internal_transfer: false, needs_review: false, priority: 5 },
+  { keyword: 'PAJAK ATAS BUNGA', l1_category: 'Taxes & Govt Fees', l2_category: null, is_internal_transfer: false, needs_review: false, priority: 10 },
+  { keyword: 'PENERIMAAN NEGARA', l1_category: 'Taxes & Govt Fees', l2_category: null, is_internal_transfer: false, needs_review: false, priority: 10 },
+  { keyword: 'International Transaction Fee', l1_category: 'Taxes & Govt Fees', l2_category: null, is_internal_transfer: false, needs_review: false, priority: 5 },
+  { keyword: 'CENTRELINK', l1_category: 'Taxes & Govt Fees', l2_category: null, is_internal_transfer: false, needs_review: true, priority: 5 },
+
+  // ── PROFESSIONAL SERVICES ──
+  { keyword: 'FINDEX', l1_category: 'Professional Services', l2_category: null, is_internal_transfer: false, needs_review: false, priority: 5 },
+  { keyword: 'MR GREG MALHAM', l1_category: 'Professional Services', l2_category: null, is_internal_transfer: false, needs_review: false, priority: 5 },
+  { keyword: 'CRYPTOTAXCALCULATOR', l1_category: 'Professional Services', l2_category: null, is_internal_transfer: false, needs_review: false, priority: 5 },
+  { keyword: 'JUSTANSWER', l1_category: 'Professional Services', l2_category: null, is_internal_transfer: false, needs_review: false, priority: 5 },
+  { keyword: 'HORSHAM CAPITAL', l1_category: 'Professional Services', l2_category: null, is_internal_transfer: false, needs_review: false, priority: 5 },
+  { keyword: 'TRF BIFAST KE VALLEN', l1_category: 'Professional Services', l2_category: null, is_internal_transfer: false, needs_review: false, priority: 10 },
+
+  // ── DONATIONS ──
+  { keyword: 'STROKE FOUNDATION', l1_category: 'Donations', l2_category: null, is_internal_transfer: false, needs_review: false, priority: 5 },
+  { keyword: 'OCRF', l1_category: 'Donations', l2_category: null, is_internal_transfer: false, needs_review: false, priority: 5 },
+  { keyword: 'DEMENTIA AUSTRALIA', l1_category: 'Donations', l2_category: null, is_internal_transfer: false, needs_review: false, priority: 5 },
+  { keyword: 'CANCER COUNCIL', l1_category: 'Donations', l2_category: null, is_internal_transfer: false, needs_review: false, priority: 5 },
+  { keyword: 'SP GREENFLEET', l1_category: 'Donations', l2_category: null, is_internal_transfer: false, needs_review: false, priority: 5 },
+
+  // ── INVESTING ──
+  { keyword: 'CoinJar', l1_category: 'Investing', l2_category: null, is_internal_transfer: false, needs_review: false, priority: 5 },
 ];
 
 export function useCategoryRules() {
