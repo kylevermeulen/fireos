@@ -49,6 +49,7 @@ interface TransactionsTableProps {
   onClearFilter?: () => void;
   showClearFilter?: boolean;
   onTransactionUpdated?: () => void;
+  onOptimisticUpdate?: (transactionId: string, newL1: string, isTransfer: boolean) => void;
 }
 
 type SortField = 'date' | 'source_account' | 'amount_aud' | 'L1';
@@ -61,12 +62,13 @@ interface SortState {
 
 const PAGE_SIZE = 250;
 
-export function TransactionsTable({ 
-  transactions, 
-  title, 
+export function TransactionsTable({
+  transactions,
+  title,
   onClearFilter,
   showClearFilter = false,
   onTransactionUpdated,
+  onOptimisticUpdate,
 }: TransactionsTableProps) {
   const [sortState, setSortState] = useState<SortState>({ field: 'amount_aud', direction: 'desc' });
   const [visibleCount, setVisibleCount] = useState(PAGE_SIZE);
@@ -202,6 +204,7 @@ export function TransactionsTable({
                         transactionId={tx.id}
                         currentL1={tx.L1 === 'Unknown' ? null : tx.L1}
                         currentL2={tx.L2 === 'Unknown' ? null : tx.L2}
+                        onOptimisticUpdate={onOptimisticUpdate}
                         onUpdate={onTransactionUpdated ?? (() => {})}
                       />
                     ) : (

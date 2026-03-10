@@ -153,9 +153,13 @@ export default function Transactions() {
 
   const transferLinks = useMemo(() => buildTransferLinks(transactions), [transactions]);
 
-  const handleCategoryUpdated = useCallback(() => {
-    loadTransactions();
-  }, [loadTransactions]);
+  const handleCategoryUpdated = useCallback((txId: string, newL1: string, isTransfer: boolean) => {
+    setTransactions(prev => prev.map(t => 
+      t.id === txId 
+        ? { ...t, l1_category: newL1, l2_category: null, is_internal_transfer: isTransfer }
+        : t
+    ));
+  }, []);
 
   const filtered = useMemo(() => {
     return transactions.filter(t => {
@@ -752,7 +756,8 @@ export default function Transactions() {
                               transactionId={t.id}
                               currentL1={t.l1_category}
                               currentL2={t.l2_category}
-                              onUpdate={handleCategoryUpdated}
+                              onOptimisticUpdate={handleCategoryUpdated}
+                              onUpdate={loadTransactions}
                             />
                           </TableCell>
                           <TableCell>
