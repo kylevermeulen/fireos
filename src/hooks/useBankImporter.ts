@@ -445,20 +445,24 @@ export function useBankImporter() {
       let amountAud = amount;
       const IDR_FALLBACK_RATE = 10900; // Approximate 2025 rate: 10,900 IDR = 1 AUD
 
+      // Determine if this is an IDR transaction:
+      // 1. Wise: sourceCurrency from CSV column
+      // 2. Permata: config.isPermata flag from detectPermata()
+      // 3. Account currency: config.currency from the account record
+      const isIDR = sourceCurrency === 'IDR' || config.isPermata || config.currency === 'IDR';
+
+      console.log(`[BankImporter] Row ${i}: amount=${amount}, isPermata=${config.isPermata}, currency=${config.currency}, sourceCurrency=${sourceCurrency}, isIDR=${isIDR}`);
+
       if (sourceCurrency && sourceCurrency !== 'AUD') {
         if (sourceCurrency === 'IDR' && exchangeRate && exchangeRate > 0) {
-          // IDR → AUD: divide by exchange rate (rate is IDR per 1 AUD)
           amountAud = amount / exchangeRate;
         } else if (sourceCurrency === 'IDR') {
           amountAud = Math.round((amount / IDR_FALLBACK_RATE) * 100) / 100;
         } else if (sourceCurrency === 'USD') {
-          // USD amounts stored as-is, conversion happens elsewhere
           amountAud = amount;
         }
-      }
-
-      // Permata: always IDR, use fallback rate
-      if (config.isPermata && !sourceCurrency) {
+      } else if (isIDR) {
+        // Permata or IDR-denominated account: convert using fallback rate
         amountAud = Math.round((amount / IDR_FALLBACK_RATE) * 100) / 100;
       }
 
