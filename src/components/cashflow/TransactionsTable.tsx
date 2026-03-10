@@ -49,6 +49,7 @@ interface TransactionsTableProps {
   onClearFilter?: () => void;
   showClearFilter?: boolean;
   onTransactionUpdated?: () => void;
+  onOptimisticUpdate?: (transactionId: string, newL1: string, isTransfer: boolean) => void;
 }
 
 type SortField = 'date' | 'source_account' | 'amount_aud' | 'L1';
