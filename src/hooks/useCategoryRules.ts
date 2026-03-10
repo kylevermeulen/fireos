@@ -322,17 +322,19 @@ export function useCategoryRules() {
    * (longest keyword match with highest priority wins).
    */
   const applyRules = useCallback((description: string, overrideRules?: CategoryRule[]): CategoryRule | null => {
-    const rulesToUse = overrideRules ?? rules;
-    if (!description || rulesToUse.length === 0) return null;
+    if (!overrideRules || overrideRules.length === 0) {
+      console.warn('[applyRules] No rules provided — pass freshRules explicitly');
+      return null;
+    }
+    if (!description) return null;
 
     const upper = description.toUpperCase();
     let bestMatch: CategoryRule | null = null;
     let bestLen = 0;
 
-    for (const rule of rulesToUse) {
+    for (const rule of overrideRules) {
       const kw = rule.keyword.toUpperCase();
       if (upper.includes(kw)) {
-        // Prefer longer keywords, then higher priority
         if (kw.length > bestLen || (kw.length === bestLen && rule.priority > (bestMatch?.priority ?? 0))) {
           bestMatch = rule;
           bestLen = kw.length;
@@ -341,7 +343,7 @@ export function useCategoryRules() {
     }
 
     return bestMatch;
-  }, [rules]);
+  }, []);
 
   return { rules, isLoading, isSeeding, seedRules, applyRules, fetchRules };
 }
