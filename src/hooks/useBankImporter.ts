@@ -36,7 +36,8 @@ export interface BankImportConfig {
 export interface ImportPreviewRow {
   date: string;
   description: string;
-  amount: number;
+  amount: number;          // Native currency amount
+  amountAud: number;       // AUD-converted amount
   counterparty: string;
   matchedRule: CategoryRule | null;
   bankCategory: string;
@@ -44,9 +45,9 @@ export interface ImportPreviewRow {
   mappedL2: string | null;
   isTransfer: boolean;
   isDuplicate: boolean;
-  dupeType: 'none' | 'same-account' | 'cross-account';  // Why it was flagged
-  dupeAccountName: string | null;  // Which account has the matching tx
-  excluded: boolean;               // User can toggle this
+  dupeType: 'none' | 'same-account' | 'cross-account';
+  dupeAccountName: string | null;
+  excluded: boolean;
   rawLine: string;
 }
 
