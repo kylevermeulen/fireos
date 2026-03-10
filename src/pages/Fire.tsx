@@ -65,7 +65,7 @@ export default function Fire() {
 
   const isLoading = txLoading || fireLoading;
 
-  if (isLoading) {
+  if (isLoading && !metrics && rawTransactions.length === 0) {
     return (
       <AppLayout>
         <div className="space-y-6">

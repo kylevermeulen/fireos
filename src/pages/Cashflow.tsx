@@ -136,7 +136,7 @@ export default function Cashflow() {
     setSelectedTableCategory(null);
   };
 
-  if (isLoading) {
+  if (isLoading && rawTransactions.length === 0) {
     return (
       <AppLayout>
         <div className="space-y-6">

@@ -27,7 +27,7 @@ export default function Index() {
   const { data: balances, isLoading: balancesLoading } = useBalances();
   const { data: accounts, isLoading: accountsLoading } = useAccounts();
 
-  const isLoading = !sessionReady || snapshotsLoading || balancesLoading || accountsLoading;
+  const isLoading = !sessionReady || (snapshotsLoading && !snapshots.length) || (balancesLoading && !balances) || (accountsLoading && !accounts);
 
   // Filter snapshots by time range
   const filteredSnapshots = useMemo(() => {
@@ -143,9 +143,9 @@ export default function Index() {
           <Card>
             <CardContent className="flex flex-col items-center justify-center py-12">
               <Wallet className="h-12 w-12 text-muted-foreground mb-4" />
-              <h3 className="text-lg font-medium mb-2">Processing Data</h3>
+              <h3 className="text-lg font-medium mb-2">No Data Yet</h3>
               <p className="text-muted-foreground text-center max-w-md">
-                Your data is being processed. Refresh the page if this persists.
+                Import your financial data via Settings to see your dashboard.
               </p>
             </CardContent>
           </Card>

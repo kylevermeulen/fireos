@@ -45,7 +45,7 @@ export default function Investments() {
   const { data: allHoldings, isLoading: holdingsLoading } = useAllHoldings();
   const { holdingsValueByAccount, isLoading: holdingsValLoading } = useHoldingsValues();
 
-  const isLoading = accountsLoading || balancesLoading || holdingsLoading || holdingsValLoading;
+  const isLoading = (accountsLoading && !accounts) || (balancesLoading && !balances) || (holdingsLoading && !allHoldings) || holdingsValLoading;
 
   const toggleGroup = (group: InvestmentCategory) => {
     setExpandedGroups(prev => {

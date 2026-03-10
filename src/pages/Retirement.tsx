@@ -21,7 +21,7 @@ export default function Retirement() {
   const { data: accounts, isLoading: accountsLoading } = useAccounts();
   const { data: balances, isLoading: balancesLoading } = useBalances();
 
-  const isLoading = accountsLoading || balancesLoading;
+  const isLoading = (accountsLoading && !accounts) || (balancesLoading && !balances);
 
   const retirementData = useMemo(() => {
     if (!accounts || !balances) {
