@@ -38,7 +38,7 @@ export default function Settings() {
   const [migrationProgress, setMigrationProgress] = useState(0);
   const [isRecategorising, setIsRecategorising] = useState(false);
   const [isCleaning, setIsCleaning] = useState(false);
-
+  const [isFixingTransfers, setIsFixingTransfers] = useState(false);
   const handleSignOut = async () => {
     const { error } = await signOut();
     if (error) {
