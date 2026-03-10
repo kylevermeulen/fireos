@@ -118,7 +118,7 @@ export function BankImporter() {
     const withDupes = await checkDuplicates(allRows, selectedAccountId);
     setPreviewRows(withDupes);
     setStep('preview');
-  }, [parsedFiles, selectedAccountId, selectedAccount, dateFormat, parseFile, applyRules, checkDuplicates]);
+  }, [parsedFiles, selectedAccountId, selectedAccount, dateFormat, parseFile, applyRules, rules, checkDuplicates]);
 
   const handleImport = useCallback(async () => {
     if (!selectedAccount || parsedFiles.length === 0) return;

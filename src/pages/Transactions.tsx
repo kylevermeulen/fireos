@@ -323,7 +323,7 @@ export default function Transactions() {
 
     setImportStep('done');
     await loadTransactions();
-  }, [selectedAccountId, selectedAccount, currentFileName, columnMapping, dateFormat, previewRows, importRows, pendingFiles, parseFile, applyRules, checkDuplicates, loadTransactions]);
+  }, [selectedAccountId, selectedAccount, currentFileName, columnMapping, dateFormat, previewRows, importRows, pendingFiles, parseFile, applyRules, rules, checkDuplicates, loadTransactions]);
 
   const resetImport = () => {
     setPendingFiles([]);
