@@ -32,7 +32,11 @@ export default function Settings() {
   const { user, signOut } = useAuth();
   const navigate = useNavigate();
   const { toast } = useToast();
+  const { rules, applyRules, fetchRules } = useCategoryRules();
   const [isClearing, setIsClearing] = useState(false);
+  const [isMigrating, setIsMigrating] = useState(false);
+  const [migrationProgress, setMigrationProgress] = useState(0);
+  const [isRecategorising, setIsRecategorising] = useState(false);
 
   const handleSignOut = async () => {
     const { error } = await signOut();
