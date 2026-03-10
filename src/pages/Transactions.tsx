@@ -92,23 +92,6 @@ export default function Transactions() {
 
   const selectedAccount = accounts.find(a => a.id === selectedAccountId);
 
-  const handleDeleteByAccount = useCallback(async () => {
-    if (!deleteAccountId) return;
-    setIsDeleting(true);
-    const acct = accounts.find(a => a.id === deleteAccountId);
-    const { error, count } = await supabase
-      .from('transactions')
-      .delete({ count: 'exact' })
-      .eq('account_id', deleteAccountId);
-    setIsDeleting(false);
-    if (error) {
-      console.error('Delete error:', error);
-    } else {
-      loadTransactions();
-    }
-    setDeleteAccountId('');
-  }, [deleteAccountId, accounts, loadTransactions]);
-
   // ── Load data ──
   const loadTransactions = useCallback(async () => {
     setIsLoading(true);
@@ -138,6 +121,23 @@ export default function Transactions() {
     loadTransactions();
     supabase.from('accounts').select('id, name, currency').order('name').then(({ data }) => setAccounts(data ?? []));
   }, [loadTransactions]);
+
+  const handleDeleteByAccount = useCallback(async () => {
+    if (!deleteAccountId) return;
+    setIsDeleting(true);
+    const { error } = await supabase
+      .from('transactions')
+      .delete({ count: 'exact' })
+      .eq('account_id', deleteAccountId);
+    setIsDeleting(false);
+    if (error) {
+      console.error('Delete error:', error);
+    } else {
+      loadTransactions();
+    }
+    setDeleteAccountId('');
+  }, [deleteAccountId, loadTransactions]);
+
 
   // ── Derived data ──
   const allL1Categories = useMemo(() => {
