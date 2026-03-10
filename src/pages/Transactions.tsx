@@ -61,6 +61,7 @@ function escapeCsvField(value: string): string {
 
 export default function Transactions() {
   // ── Data state ──
+  const [selectedTx, setSelectedTx] = useState<DbTransaction | null>(null);
   const [transactions, setTransactions] = useState<DbTransaction[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [accounts, setAccounts] = useState<Account[]>([]);
