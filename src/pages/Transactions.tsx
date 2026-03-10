@@ -293,7 +293,7 @@ export default function Transactions() {
     const withDupes = await checkDuplicates(parsed, selectedAccountId);
     setPreviewRows(withDupes);
     setImportStep('preview');
-  }, [csvContent, selectedAccountId, selectedAccount, columnMapping, dateFormat, currentFileName, parseFile, applyRules, checkDuplicates]);
+  }, [csvContent, selectedAccountId, selectedAccount, columnMapping, dateFormat, currentFileName, parseFile, applyRules, rules, checkDuplicates]);
 
   // ── Import ──
   const handleImport = useCallback(async () => {
