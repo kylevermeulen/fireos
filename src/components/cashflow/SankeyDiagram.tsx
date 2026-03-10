@@ -291,7 +291,9 @@ export function SankeyDiagram({
                       dominantBaseline="middle"
                       className="text-[11px] fill-muted-foreground"
                     >
-                      {formatCompactCurrency(node.value || 0)}
+                      {formatCompactCurrency(
+                        isIncome ? totalIncome : (node.value || 0)
+                      )}
                     </text>
                   </g>
                 );
