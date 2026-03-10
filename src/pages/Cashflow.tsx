@@ -25,7 +25,7 @@ export default function Cashflow() {
   const { effectiveDateRange } = useGlobalTimeRange();
   
   // Data loading
-  const { rawTransactions, isLoading, error, reload } = useCashflowData(mode);
+  const { rawTransactions, isLoading, error, reload, updateTransaction } = useCashflowData(mode);
   
   // Filter state
   const [l1Filter, setL1Filter] = useState<string | null>(null);
