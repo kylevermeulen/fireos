@@ -17,6 +17,7 @@ export interface ColumnMapping {
   direction?: number;      // Direction column (IN/OUT) — determines sign (e.g. Wise)
   feeAmount?: number;      // Fee column to add to the source amount for total
   sourceCurrency?: number; // Source currency column
+  signColumn?: number;     // Credit/Debit indicator column (e.g. Permata)
 }
 
 export interface BankImportConfig {
