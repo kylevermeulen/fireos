@@ -16,7 +16,7 @@ async function fetchAllTransactions(userId: string, mode: CashflowMode): Promise
   while (true) {
     let query = supabase
       .from('transactions')
-      .select('transaction_date, source_account_name, counterparty, description, amount_native, currency, amount_aud, transaction_type, is_internal_transfer, l1_category, l2_category, is_synthetic')
+      .select('id, transaction_date, source_account_name, counterparty, description, amount_native, currency, amount_aud, transaction_type, is_internal_transfer, l1_category, l2_category, is_synthetic')
       .eq('user_id', userId)
       .range(from, from + BATCH - 1);
 
