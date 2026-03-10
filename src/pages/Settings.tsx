@@ -204,6 +204,65 @@ export default function Settings() {
           </CardContent>
         </Card>
 
+        {/* Seed Amortized Rent */}
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Database className="h-5 w-5" />
+              Synthetic Transactions
+            </CardTitle>
+            <CardDescription>Insert amortized Bali rent transactions (18 months × 2 payees)</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <Button
+              variant="secondary"
+              disabled={!user}
+              onClick={async () => {
+                if (!user) return;
+                // Check if already inserted
+                const { data: existing } = await supabase
+                  .from('transactions')
+                  .select('id')
+                  .eq('user_id', user.id)
+                  .like('description', 'Bali Rent (Amortized%')
+                  .limit(1);
+                if (existing && existing.length > 0) {
+                  toast({ title: 'Already seeded', description: 'Amortized rent transactions already exist' });
+                  return;
+                }
+                // Get Wise account
+                const { data: accounts } = await supabase
+                  .from('accounts')
+                  .select('id')
+                  .eq('user_id', user.id)
+                  .eq('name', 'Wise')
+                  .limit(1);
+                const wiseId = accounts?.[0]?.id ?? null;
+
+                const rows: any[] = [];
+                for (let m = 1; m <= 18; m++) {
+                  const year = 2025 + Math.floor((m + 6) / 12);
+                  const month = ((m + 6) % 12) + 1;
+                  const dateStr = `${year}-${String(month).padStart(2, '0')}-01`;
+                  rows.push(
+                    { user_id: user.id, account_id: wiseId, transaction_date: dateStr, amount_native: 3732.767222, amount_aud: 3732.767222, currency: 'AUD', transaction_type: 'expense', description: `Bali Rent (Amortized ${m}/18) — Lisa Michelle Crosby`, l1_category: 'Rent', l2_category: 'Bali Rent', is_internal_transfer: false, is_synthetic: true, needs_review: false, source_account_name: 'Wise' },
+                    { user_id: user.id, account_id: wiseId, transaction_date: dateStr, amount_native: 405.353333, amount_aud: 405.353333, currency: 'AUD', transaction_type: 'expense', description: `Bali Rent (Amortized ${m}/18) — PT Adyatama Sentosa`, l1_category: 'Rent', l2_category: 'Bali Rent', is_internal_transfer: false, is_synthetic: true, needs_review: false, source_account_name: 'Wise' },
+                  );
+                }
+                const { error } = await supabase.from('transactions').insert(rows);
+                if (error) {
+                  toast({ title: 'Insert failed', description: error.message, variant: 'destructive' });
+                } else {
+                  toast({ title: 'Seeded', description: `Inserted ${rows.length} amortized rent transactions` });
+                }
+              }}
+            >
+              <Database className="mr-2 h-4 w-4" />
+              Seed Amortized Rent
+            </Button>
+          </CardContent>
+        </Card>
+
         {/* Data Migration */}
         <Card>
           <CardHeader>
