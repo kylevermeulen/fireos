@@ -19,7 +19,8 @@ import { useCategoryRules } from '@/hooks/useCategoryRules';
 import { CategoryRulesPanel } from '@/components/transactions/CategoryRulesPanel';
 import { L1_DISPLAY_ORDER } from '@/components/transactions/InlineCategoryEditor';
 import { CategoryBadge } from '@/components/transactions/CategoryBadge';
-import { TransferLinkBadge, buildTransferLinks } from '@/components/transactions/TransferLinkBadge';
+import { buildTransferLinks } from '@/components/transactions/TransferLinkBadge';
+import { TransactionDetailModal } from '@/components/transactions/TransactionDetailModal';
 import { formatCompactCurrency } from '@/lib/format';
 import { cn } from '@/lib/utils';
 
