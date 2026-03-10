@@ -200,6 +200,24 @@ function findCol(headers: string[], names: string[]): number {
  * Some bank CSVs (e.g. Permata) have preamble rows before headers.
  * Returns the header row index (0-based) and parsed headers.
  */
+/**
+ * Detect if a CSV is from Permata bank by checking preamble for "Rp" currency indicator.
+ */
+export function detectPermata(csvContent: string): boolean {
+  const lines = csvContent.split(/\r?\n/).filter(l => l.trim());
+  // Check first few lines for "Rp" currency indicator (e.g. "Permata ME Saver, Rp, 99XXXXXX40")
+  for (let i = 0; i < Math.min(3, lines.length); i++) {
+    const cells = parseCsvLine(lines[i]);
+    if (cells.some(c => c.trim() === 'Rp')) return true;
+  }
+  // Also check if header has "Posted Date (mm/dd/yyyy)" pattern
+  for (let i = 0; i < Math.min(5, lines.length); i++) {
+    const cells = parseCsvLine(lines[i]);
+    if (cells.some(c => norm(c).includes('posted date'))) return true;
+  }
+  return false;
+}
+
 export function findHeaderRow(csvContent: string, maxScan = 5): { headerIndex: number; headers: string[] } {
   const lines = csvContent.split(/\r?\n/).filter(l => l.trim());
   const knownHeaderKeywords = [
@@ -209,7 +227,6 @@ export function findHeaderRow(csvContent: string, maxScan = 5): { headerIndex: n
   for (let i = 0; i < Math.min(maxScan, lines.length); i++) {
     const cells = parseCsvLine(lines[i]);
     const normalized = cells.map(c => c.toLowerCase().replace(/[_\s]+/g, ' ').trim());
-    // Check if this row contains at least one known date-related header AND at least one other known header
     const hasDateHeader = normalized.some(h =>
       knownHeaderKeywords.some(k => h.includes(k))
     );
@@ -217,13 +234,11 @@ export function findHeaderRow(csvContent: string, maxScan = 5): { headerIndex: n
       h.includes('description') || h.includes('amount') || h.includes('credit') || h.includes('debit') || h.includes('direction') || h.includes('narrative')
     );
     if (hasDateHeader && hasOtherHeader) {
-      // Remove BOM from first cell
       if (cells[0]?.startsWith('\uFEFF')) cells[0] = cells[0].slice(1);
       return { headerIndex: i, headers: cells.map(c => c.trim()) };
     }
   }
 
-  // Fallback: first row
   const cells = parseCsvLine(lines[0] ?? '');
   if (cells[0]?.startsWith('\uFEFF')) cells[0] = cells[0].slice(1);
   return { headerIndex: 0, headers: cells.map(c => c.trim()) };

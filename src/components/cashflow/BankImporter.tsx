@@ -7,7 +7,7 @@ import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Upload, Check, AlertTriangle, FileSpreadsheet, Tag } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
-import { useBankImporter, autoDetectColumns, findHeaderRow, BankImportConfig, ImportPreviewRow, ColumnMapping } from '@/hooks/useBankImporter';
+import { useBankImporter, autoDetectColumns, findHeaderRow, detectPermata, BankImportConfig, ImportPreviewRow, ColumnMapping } from '@/hooks/useBankImporter';
 import { useCategoryRules } from '@/hooks/useCategoryRules';
 import { formatCompactCurrency } from '@/lib/format';
 
@@ -17,14 +17,24 @@ interface Account {
   currency: string;
 }
 
+interface ParsedFile {
+  fileName: string;
+  content: string;
+  headerIndex: number;
+  headers: string[];
+  mapping: ColumnMapping;
+  hasDebitCredit: boolean;
+  dateFormat: BankImportConfig['dateFormat'];
+  isPermata: boolean;
+}
+
 export function BankImporter() {
   const { parseFile, checkDuplicates, importRows, isImporting } = useBankImporter();
   const { rules, applyRules, seedRules, isSeeding, isLoading: rulesLoading } = useCategoryRules();
   const [accounts, setAccounts] = useState<Account[]>([]);
   const [selectedAccountId, setSelectedAccountId] = useState<string>('');
   const [dateFormat, setDateFormat] = useState<BankImportConfig['dateFormat']>('dd/mm/yyyy');
-  const [csvContent, setCsvContent] = useState<string | null>(null);
-  const [fileName, setFileName] = useState<string | null>(null);
+  const [parsedFiles, setParsedFiles] = useState<ParsedFile[]>([]);
   const [headers, setHeaders] = useState<string[]>([]);
   const [previewRows, setPreviewRows] = useState<ImportPreviewRow[]>([]);
   const [columnMapping, setColumnMapping] = useState<ColumnMapping>({ date: 0, description: 1, amount: 2 });
@@ -32,6 +42,7 @@ export function BankImporter() {
   const [importDone, setImportDone] = useState(false);
   const [step, setStep] = useState<'select' | 'map' | 'preview' | 'done'>('select');
   const [headerIndex, setHeaderIndex] = useState(0);
+  const [isPermata, setIsPermata] = useState(false);
 
   // Fetch accounts
   useEffect(() => {
@@ -43,72 +54,102 @@ export function BankImporter() {
   const selectedAccount = accounts.find(a => a.id === selectedAccountId);
 
   const handleFileUpload = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file || !file.name.endsWith('.csv')) return;
-    setFileName(file.name);
-    file.text().then(content => {
-      setCsvContent(content);
-      // Find real header row (handles preambles like Permata)
-      const { headerIndex: hIdx, headers: hdrs } = findHeaderRow(content);
-      setHeaderIndex(hIdx);
-      setHeaders(hdrs);
+    const fileList = e.target.files;
+    if (!fileList || fileList.length === 0) return;
 
-      // Use the robust autoDetectColumns from useBankImporter
-      const { mapping, hasDebitCredit, detectedDateFormat } = autoDetectColumns(hdrs);
-      setColumnMapping(mapping);
-      setUseSeparateDebitCredit(hasDebitCredit);
-      if (detectedDateFormat !== 'auto') {
-        setDateFormat(detectedDateFormat);
-      }
-      setStep('map');
-    });
+    const files = Array.from(fileList).filter(f => f.name.endsWith('.csv'));
+    if (files.length === 0) return;
+
+    Promise.all(files.map(file => file.text().then(content => ({ fileName: file.name, content }))))
+      .then(fileContents => {
+        const parsed: ParsedFile[] = fileContents.map(({ fileName, content }) => {
+          const { headerIndex: hIdx, headers: hdrs } = findHeaderRow(content);
+          const { mapping, hasDebitCredit, detectedDateFormat } = autoDetectColumns(hdrs);
+          const permata = detectPermata(content);
+          return {
+            fileName,
+            content,
+            headerIndex: hIdx,
+            headers: hdrs,
+            mapping,
+            hasDebitCredit,
+            dateFormat: detectedDateFormat,
+            isPermata: permata,
+          };
+        });
+
+        setParsedFiles(parsed);
+        // Use first file's settings for the column mapping UI
+        const first = parsed[0];
+        setHeaders(first.headers);
+        setHeaderIndex(first.headerIndex);
+        setColumnMapping(first.mapping);
+        setUseSeparateDebitCredit(first.hasDebitCredit);
+        setIsPermata(parsed.some(f => f.isPermata));
+        if (first.dateFormat !== 'auto') {
+          setDateFormat(first.dateFormat);
+        }
+        setStep('map');
+      });
   }, []);
 
   const handlePreview = useCallback(async () => {
-    if (!csvContent || !selectedAccountId || !selectedAccount) return;
-    
-    const config: BankImportConfig = {
-      accountId: selectedAccountId,
-      accountName: selectedAccount.name,
-      currency: selectedAccount.currency,
-      fileName: fileName ?? 'unknown.csv',
-      columnMapping,
-      dateFormat,
-      skipRows: headerIndex + 1,
-      invertSign: false,
-    };
+    if (parsedFiles.length === 0 || !selectedAccountId || !selectedAccount) return;
 
-    const parsed = parseFile(csvContent, config, applyRules);
-    const withDupes = await checkDuplicates(parsed, selectedAccountId);
+    const allRows: ImportPreviewRow[] = [];
+
+    for (const pf of parsedFiles) {
+      const config: BankImportConfig = {
+        accountId: selectedAccountId,
+        accountName: selectedAccount.name,
+        currency: selectedAccount.currency,
+        fileName: pf.fileName,
+        columnMapping: pf.mapping,
+        dateFormat: pf.dateFormat,
+        skipRows: pf.headerIndex + 1,
+        invertSign: false,
+        isPermata: pf.isPermata,
+      };
+
+      const parsed = parseFile(pf.content, config, applyRules);
+      allRows.push(...parsed);
+    }
+
+    const withDupes = await checkDuplicates(allRows, selectedAccountId);
     setPreviewRows(withDupes);
     setStep('preview');
-  }, [csvContent, selectedAccountId, selectedAccount, columnMapping, dateFormat, fileName, parseFile, applyRules, checkDuplicates]);
+  }, [parsedFiles, selectedAccountId, selectedAccount, dateFormat, parseFile, applyRules, checkDuplicates]);
 
   const handleImport = useCallback(async () => {
-    if (!selectedAccount) return;
+    if (!selectedAccount || parsedFiles.length === 0) return;
+
+    // Use first file's config for import log
+    const pf = parsedFiles[0];
+    const fileNames = parsedFiles.map(f => f.fileName).join(', ');
 
     const config: BankImportConfig = {
       accountId: selectedAccountId,
       accountName: selectedAccount.name,
       currency: selectedAccount.currency,
-      fileName: fileName ?? 'unknown.csv',
-      columnMapping,
-      dateFormat,
-      skipRows: headerIndex + 1,
+      fileName: fileNames,
+      columnMapping: pf.mapping,
+      dateFormat: pf.dateFormat,
+      skipRows: pf.headerIndex + 1,
       invertSign: false,
+      isPermata: pf.isPermata,
     };
 
     await importRows(previewRows, config);
     setImportDone(true);
     setStep('done');
-  }, [selectedAccountId, selectedAccount, fileName, columnMapping, dateFormat, previewRows, importRows]);
+  }, [selectedAccountId, selectedAccount, parsedFiles, previewRows, importRows]);
 
   const reset = () => {
-    setCsvContent(null);
-    setFileName(null);
+    setParsedFiles([]);
     setHeaders([]);
     setPreviewRows([]);
     setImportDone(false);
+    setIsPermata(false);
     setStep('select');
   };
 
@@ -116,6 +157,7 @@ export function BankImporter() {
   const dupeCount = previewRows.filter(r => r.isDuplicate).length;
   const categorizedCount = previewRows.filter(r => r.matchedRule && !r.isDuplicate).length;
   const reviewCount = previewRows.filter(r => r.matchedRule?.needs_review && !r.isDuplicate).length;
+  const hasNonAud = isPermata || previewRows.some(r => Math.abs(r.amount - r.amountAud) > 0.01);
 
   return (
     <div className="space-y-4">
@@ -181,6 +223,7 @@ export function BankImporter() {
                 <input
                   type="file"
                   accept=".csv"
+                  multiple
                   onChange={handleFileUpload}
                   className="hidden"
                   id="bank-csv-upload"
@@ -194,7 +237,7 @@ export function BankImporter() {
                 >
                   <Upload className="h-8 w-8 text-muted-foreground" />
                   <p className="text-sm text-muted-foreground">
-                    {selectedAccountId ? 'Click to select your bank CSV file' : 'Select an account first'}
+                    {selectedAccountId ? 'Click to select one or more bank CSV files' : 'Select an account first'}
                   </p>
                 </label>
               </div>
@@ -206,8 +249,24 @@ export function BankImporter() {
             <div className="space-y-4">
               <Alert>
                 <FileSpreadsheet className="h-4 w-4" />
-                <AlertTitle>{fileName}</AlertTitle>
-                <AlertDescription>Map your CSV columns below. Auto-detection has been applied.</AlertDescription>
+                <AlertTitle>
+                  {parsedFiles.length === 1
+                    ? parsedFiles[0].fileName
+                    : `${parsedFiles.length} files selected`}
+                </AlertTitle>
+                <AlertDescription>
+                  {parsedFiles.length > 1 && (
+                    <span className="block text-xs text-muted-foreground mb-1">
+                      {parsedFiles.map(f => f.fileName).join(', ')}
+                    </span>
+                  )}
+                  Map your CSV columns below. Auto-detection has been applied.
+                  {isPermata && (
+                    <span className="block text-xs text-muted-foreground mt-1">
+                      🇮🇩 Permata format detected — amounts will be converted from IDR to AUD (rate: ~10,900)
+                    </span>
+                  )}
+                </AlertDescription>
               </Alert>
 
               <div className="grid grid-cols-2 gap-4">
@@ -282,6 +341,9 @@ export function BankImporter() {
             <div className="space-y-4">
               <div className="flex flex-wrap gap-2">
                 <Badge variant="secondary">{previewRows.length} total rows</Badge>
+                {parsedFiles.length > 1 && (
+                  <Badge variant="secondary">{parsedFiles.length} files</Badge>
+                )}
                 <Badge className="bg-green-500/20 text-green-700">{newTxCount} new</Badge>
                 <Badge className="bg-yellow-500/20 text-yellow-700">{dupeCount} duplicates</Badge>
                 <Badge className="bg-blue-500/20 text-blue-700">{categorizedCount} auto-categorized</Badge>
@@ -298,35 +360,50 @@ export function BankImporter() {
                       <TableHead>Date</TableHead>
                       <TableHead>Description</TableHead>
                       <TableHead className="text-right">Amount</TableHead>
+                      {hasNonAud && <TableHead className="text-right">AUD</TableHead>}
                       <TableHead>Category</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {previewRows.slice(0, 100).map((row, i) => (
-                      <TableRow key={i} className={row.isDuplicate ? 'opacity-40' : ''}>
-                        <TableCell>
-                          {row.isDuplicate ? (
-                            <Badge variant="outline" className="text-muted-foreground text-xs">Dupe</Badge>
-                          ) : row.matchedRule?.needs_review ? (
-                            <Badge variant="outline" className="text-orange-600 text-xs">Review</Badge>
-                          ) : (
-                            <Badge variant="outline" className="text-green-600 text-xs">New</Badge>
+                    {previewRows.slice(0, 100).map((row, i) => {
+                      const isConverted = Math.abs(row.amount - row.amountAud) > 0.01;
+                      return (
+                        <TableRow key={i} className={row.isDuplicate ? 'opacity-40' : ''}>
+                          <TableCell>
+                            {row.isDuplicate ? (
+                              <Badge variant="outline" className="text-muted-foreground text-xs">Dupe</Badge>
+                            ) : row.matchedRule?.needs_review ? (
+                              <Badge variant="outline" className="text-orange-600 text-xs">Review</Badge>
+                            ) : (
+                              <Badge variant="outline" className="text-green-600 text-xs">New</Badge>
+                            )}
+                          </TableCell>
+                          <TableCell className="text-xs">{row.date}</TableCell>
+                          <TableCell className="text-xs max-w-[200px] truncate">{row.description}</TableCell>
+                          <TableCell className={`text-right text-xs ${row.amount >= 0 ? 'text-green-600' : 'text-red-500'}`}>
+                            {isConverted
+                              ? `Rp ${Math.abs(row.amount).toLocaleString('en-AU')}`
+                              : formatCompactCurrency(Math.abs(row.amount))
+                            }
+                          </TableCell>
+                          {hasNonAud && (
+                            <TableCell className={`text-right text-xs ${row.amountAud >= 0 ? 'text-green-600' : 'text-red-500'}`}>
+                              {isConverted
+                                ? formatCompactCurrency(Math.abs(row.amountAud))
+                                : ''
+                              }
+                            </TableCell>
                           )}
-                        </TableCell>
-                        <TableCell className="text-xs">{row.date}</TableCell>
-                        <TableCell className="text-xs max-w-[200px] truncate">{row.description}</TableCell>
-                        <TableCell className={`text-right text-xs ${row.amount >= 0 ? 'text-green-600' : 'text-red-500'}`}>
-                          {formatCompactCurrency(Math.abs(row.amount))}
-                        </TableCell>
-                        <TableCell className="text-xs">
-                          {row.matchedRule ? (
-                            <span className="text-primary">{row.matchedRule.l1_category}</span>
-                          ) : (
-                            <span className="text-muted-foreground">Uncategorized</span>
-                          )}
-                        </TableCell>
-                      </TableRow>
-                    ))}
+                          <TableCell className="text-xs">
+                            {row.matchedRule ? (
+                              <span className="text-primary">{row.matchedRule.l1_category}</span>
+                            ) : (
+                              <span className="text-muted-foreground">Uncategorized</span>
+                            )}
+                          </TableCell>
+                        </TableRow>
+                      );
+                    })}
                   </TableBody>
                 </Table>
               </div>
@@ -350,7 +427,7 @@ export function BankImporter() {
                 <Check className="h-4 w-4" />
                 <AlertTitle>Import Complete</AlertTitle>
                 <AlertDescription>
-                  Successfully imported transactions from {fileName} into {selectedAccount?.name}.
+                  Successfully imported transactions from {parsedFiles.map(f => f.fileName).join(', ')} into {selectedAccount?.name}.
                 </AlertDescription>
               </Alert>
               <Button onClick={reset}>Import Another File</Button>
