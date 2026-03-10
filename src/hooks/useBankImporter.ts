@@ -115,7 +115,20 @@ function parseAmount(value: string): number | null {
   if (!value) return null;
   let s = value.trim().replace(/\$/g, '').replace(/\s/g, '');
   const neg = s.startsWith('-') || (s.startsWith('(') && s.endsWith(')'));
-  s = s.replace(/[()-]/g, '').replace(/,/g, '');
+  s = s.replace(/[()-]/g, '');
+
+  // Detect IDR-style formatting: dots as thousands separators, comma as decimal (or no decimal)
+  // e.g. "1.500.000" or "1.500.000,00"
+  const dotCount = (s.match(/\./g) || []).length;
+  const commaCount = (s.match(/,/g) || []).length;
+  if (dotCount > 1 || (dotCount >= 1 && commaCount === 1)) {
+    // Dots are thousand separators, comma is decimal
+    s = s.replace(/\./g, '').replace(',', '.');
+  } else {
+    // Standard: commas are thousand separators
+    s = s.replace(/,/g, '');
+  }
+
   const n = parseFloat(s);
   if (!isFinite(n)) return null;
   return neg ? -Math.abs(n) : n;
