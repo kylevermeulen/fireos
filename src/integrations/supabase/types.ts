@@ -567,6 +567,7 @@ export type Database = {
           description: string | null
           id: string
           is_internal_transfer: boolean
+          is_synthetic: boolean
           l1_category: string | null
           l2_category: string | null
           merchant: string | null
@@ -590,6 +591,7 @@ export type Database = {
           description?: string | null
           id?: string
           is_internal_transfer?: boolean
+          is_synthetic?: boolean
           l1_category?: string | null
           l2_category?: string | null
           merchant?: string | null
@@ -613,6 +615,7 @@ export type Database = {
           description?: string | null
           id?: string
           is_internal_transfer?: boolean
+          is_synthetic?: boolean
           l1_category?: string | null
           l2_category?: string | null
           merchant?: string | null
