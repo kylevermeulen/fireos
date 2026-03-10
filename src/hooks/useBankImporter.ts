@@ -238,6 +238,10 @@ export function autoDetectColumns(headers: string[]): { mapping: ColumnMapping; 
     hasDebitCredit = true;
   }
 
+  // Credit/Debit sign indicator column (e.g. Permata: "Credit/Debit")
+  const signIdx = findCol(headers, ['credit/debit', 'credit debit', 'cr/dr']);
+  if (signIdx !== -1) mapping.signColumn = signIdx;
+
   // Counterparty / Payee
   const payeeIdx = findCol(headers, ['payee', 'counterparty', 'merchant', 'beneficiary']);
   if (payeeIdx !== -1) mapping.counterparty = payeeIdx;
@@ -250,7 +254,11 @@ export function autoDetectColumns(headers: string[]): { mapping: ColumnMapping; 
   const typeIdx = findCol(headers, ['transaction type', 'type']);
   if (typeIdx !== -1) mapping.transactionType = typeIdx;
 
-  return { mapping, hasDebitCredit, detectedDateFormat: 'auto' };
+  // Detect Permata-style: has "Posted Date" and "Credit/Debit" columns
+  const isPermata = findCol(headers, ['posted date']) !== -1 && signIdx !== -1;
+  const detectedDateFormat: BankImportConfig['dateFormat'] = isPermata ? 'mm/dd/yyyy' : 'auto';
+
+  return { mapping, hasDebitCredit, detectedDateFormat };
 }
 
 export function useBankImporter() {
