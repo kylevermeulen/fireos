@@ -327,6 +327,13 @@ export function useBankImporter() {
         if (direction === 'NEUTRAL') amount = -amount;
       }
 
+      // If sign column exists (Permata format: "Credit/Debit"), use it to determine sign
+      if (config.columnMapping.signColumn != null && amount != null) {
+        const sign = (cells[config.columnMapping.signColumn] ?? '').toUpperCase().trim();
+        amount = Math.abs(amount);
+        if (sign === 'DEBIT' || sign === 'DB' || sign === 'D') amount = -amount;
+      }
+
       if (config.invertSign && amount != null) amount = -amount;
 
       const parsedDate = parseDate(dateStr, dateFormat);
