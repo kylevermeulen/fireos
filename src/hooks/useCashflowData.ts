@@ -196,7 +196,7 @@ export function useFilteredCashflow(
 
   const L1_DISPLAY_ORDER = [
     'Food Delivery & Taxi', 'Restaurants, Cafes & Bars', 'Groceries', 'Mortgage', 'Rent',
-    'Utilities & Bills', 'Household', 'School Fees', 'Childcare & Nanny', 'Family', 'Personal Care', 'Shopping',
+    'Utilities & Bills', 'Household', 'School Fees', 'Childcare & Nanny', 'Cleaner', 'Nanny', 'Family', 'Personal Care', 'Shopping',
     'Health & Fitness', 'Entertainment', 'Subscriptions', 'Travel', 'Ntegrity', 'Income',
     'Investing', 'Insurance', 'Gifts & Donations', 'Taxes & Govt Fees', 'Professional Services',
     'Transfer — Internal', 'Indonesia — Uncategorised', 'Australia — Uncategorised', 'Uncategorised',
