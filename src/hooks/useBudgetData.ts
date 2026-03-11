@@ -101,6 +101,12 @@ export function useBudgetData() {
         if (!data || data.length < batchSize) break;
         from += batchSize;
       }
+      // TEMP DIAGNOSTIC: log Rent rows
+      const rentRows = allTx.filter(t => t.l1_category === 'Rent');
+      console.log('🔍 Rent rows in budget query:', rentRows.length, 'fromDate:', fromDate, 'sample:', rentRows.slice(0, 3));
+      if (rentRows.length === 0) {
+        console.log('🔍 All distinct categories in txTotals:', [...new Set(allTx.map(t => t.l1_category))].sort());
+      }
       return allTx;
     },
     enabled: !!user,
