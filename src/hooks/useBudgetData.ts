@@ -22,21 +22,6 @@ export function useBudgetData() {
   const { user } = useAuth();
   const queryClient = useQueryClient();
   const now = new Date();
-
-  // TEMP DIAGNOSTIC: check synthetic rent rows
-  useQuery({
-    queryKey: ['debug-synthetic-rent', user?.id],
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .from('transactions')
-        .select('id, transaction_date, description, amount_aud, l1_category, is_synthetic, source_account_name')
-        .ilike('description', '%Amortized%')
-        .limit(5);
-      console.log('🔍 Synthetic rent rows:', data, error);
-      return data;
-    },
-    enabled: !!user,
-  });
   const thisMonthStart = startOfMonth(now);
   const lastMonthStart = startOfMonth(subMonths(now, 1));
   const threeMonthsAgoStart = startOfMonth(subMonths(now, 3));
