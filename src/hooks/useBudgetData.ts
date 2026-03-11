@@ -78,7 +78,6 @@ export function useBudgetData() {
           .select('l1_category, amount_aud, transaction_date')
           .eq('user_id', user.id)
           .eq('is_internal_transfer', false)
-          .eq('is_synthetic', false)
           .gte('transaction_date', fromDate)
           .lt('amount_aud', 0)
           .range(from, from + batchSize - 1);
