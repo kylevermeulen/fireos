@@ -19,6 +19,7 @@ import Mortgage from "./pages/Mortgage";
 import Retirement from "./pages/Retirement";
 import Investments from "./pages/Investments";
 import Transactions from "./pages/Transactions";
+import Budget from "./pages/Budget";
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -45,6 +46,7 @@ const App = () => (
             <Route path="/portfolio" element={<ProtectedRoute><Portfolio /></ProtectedRoute>} />
             <Route path="/cashflow" element={<ProtectedRoute><Cashflow /></ProtectedRoute>} />
             <Route path="/transactions" element={<ProtectedRoute><Transactions /></ProtectedRoute>} />
+            <Route path="/budget" element={<ProtectedRoute><Budget /></ProtectedRoute>} />
             <Route path="/fire" element={<ProtectedRoute><Fire /></ProtectedRoute>} />
             <Route path="/projections" element={<ProtectedRoute><Projections /></ProtectedRoute>} />
             <Route path="/goals" element={<ProtectedRoute><Goals /></ProtectedRoute>} />
