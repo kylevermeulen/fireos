@@ -19,6 +19,7 @@ import Mortgage from "./pages/Mortgage";
 import Retirement from "./pages/Retirement";
 import Investments from "./pages/Investments";
 import Transactions from "./pages/Transactions";
+import Budget from "./pages/Budget";
 
 const queryClient = new QueryClient({
   defaultOptions: {
