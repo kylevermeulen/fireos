@@ -6,9 +6,11 @@ import { formatCompactCurrency } from '@/lib/format';
 import { Card, CardContent } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Progress } from '@/components/ui/progress';
+import { Button } from '@/components/ui/button';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { ArrowUp, ArrowDown, ArrowRight, TrendingUp } from 'lucide-react';
+import { ArrowUp, ArrowDown, ArrowRight, ChevronLeft, ChevronRight } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { addMonths, subMonths, isSameMonth, format } from 'date-fns';
 
 function BudgetInput({ row, onSave }: { row: BudgetRow; onSave: (cat: string, amount: number) => void }) {
   const [editing, setEditing] = useState(false);
@@ -56,8 +58,19 @@ function TrendIcon({ trend }: { trend: 'up' | 'down' | 'flat' }) {
 }
 
 export default function Budget() {
-  const { rows, summary, upsertBudget } = useBudgetData();
+  const now = new Date();
+  const [selectedMonth, setSelectedMonth] = useState(now);
+  const { rows, summary, upsertBudget } = useBudgetData(selectedMonth);
   const navigate = useNavigate();
+
+  const isCurrentMonth = isSameMonth(selectedMonth, now);
+  const monthLabel = isCurrentMonth ? 'This Month' : format(selectedMonth, 'MMMM yyyy');
+  const columnLabel = isCurrentMonth ? 'This Month' : format(selectedMonth, 'MMMM');
+
+  const goBack = () => setSelectedMonth((m) => subMonths(m, 1));
+  const goForward = () => {
+    if (!isCurrentMonth) setSelectedMonth((m) => addMonths(m, 1));
+  };
 
   const handleSave = (category: string, amount: number) => {
     upsertBudget.mutate({ category, amount });
@@ -70,9 +83,26 @@ export default function Budget() {
   return (
     <AppLayout>
       <div className="space-y-6">
-        <div>
-          <h1 className="text-2xl font-bold tracking-tight">Budget</h1>
-          <p className="text-muted-foreground">Monthly spending targets vs actuals</p>
+        <div className="flex items-center justify-between">
+          <div>
+            <h1 className="text-2xl font-bold tracking-tight">Budget</h1>
+            <p className="text-muted-foreground">Monthly spending targets vs actuals</p>
+          </div>
+          <div className="flex items-center gap-1">
+            <Button variant="ghost" size="icon" onClick={goBack} className="h-8 w-8">
+              <ChevronLeft className="h-4 w-4" />
+            </Button>
+            <span className="text-sm font-medium min-w-[130px] text-center">{monthLabel}</span>
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={goForward}
+              disabled={isCurrentMonth}
+              className="h-8 w-8"
+            >
+              <ChevronRight className="h-4 w-4" />
+            </Button>
+          </div>
         </div>
 
         {/* Summary strip */}
@@ -85,7 +115,7 @@ export default function Budget() {
           </Card>
           <Card>
             <CardContent className="pt-4 pb-4 px-4">
-              <p className="text-xs text-muted-foreground uppercase tracking-wide">Spent This Month</p>
+              <p className="text-xs text-muted-foreground uppercase tracking-wide">Spent {columnLabel}</p>
               <p className="text-xl font-bold">{formatCompactCurrency(summary.totalSpent)}</p>
             </CardContent>
           </Card>
@@ -113,7 +143,7 @@ export default function Budget() {
                 <TableRow>
                   <TableHead>Category</TableHead>
                   <TableHead className="text-right">Budget</TableHead>
-                  <TableHead className="text-right">This Month</TableHead>
+                  <TableHead className="text-right">{columnLabel}</TableHead>
                   <TableHead className="text-right hidden md:table-cell">Last Month</TableHead>
                   <TableHead className="text-right hidden md:table-cell">3-Mo Avg</TableHead>
                   <TableHead className="text-right hidden sm:table-cell">Remaining</TableHead>
