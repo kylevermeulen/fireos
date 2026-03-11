@@ -2,7 +2,7 @@ import { useMemo } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
-import { startOfMonth, subMonths, format, getDaysInMonth, getDate } from 'date-fns';
+import { startOfMonth, subMonths, format, getDaysInMonth, getDate, isSameMonth } from 'date-fns';
 
 export interface BudgetRow {
   category: string;
@@ -18,17 +18,22 @@ export interface BudgetRow {
 
 const EXCLUDE_CATEGORIES = ['Transfer — Internal', 'Income', 'Uncategorised', 'Indonesia — Uncategorised', 'Australia — Uncategorised'];
 
-export function useBudgetData() {
+export function useBudgetData(selectedMonth: Date = new Date()) {
   const { user } = useAuth();
   const queryClient = useQueryClient();
   const now = new Date();
-  const thisMonthStart = startOfMonth(now);
-  const lastMonthStart = startOfMonth(subMonths(now, 1));
-  const threeMonthsAgoStart = startOfMonth(subMonths(now, 3));
+  const isCurrentMonth = isSameMonth(selectedMonth, now);
 
-  const dayOfMonth = getDate(now);
-  const daysInCurrentMonth = getDaysInMonth(now);
-  const monthFraction = dayOfMonth / daysInCurrentMonth;
+  const selectedMonthStart = startOfMonth(selectedMonth);
+  const lastMonthStart = startOfMonth(subMonths(selectedMonth, 1));
+  const threeMonthsAgoStart = startOfMonth(subMonths(selectedMonth, 3));
+
+  // For current month, use actual day fraction; for past months, use 1.0 (full month)
+  const monthFraction = isCurrentMonth
+    ? getDate(now) / getDaysInMonth(now)
+    : 1;
+
+  const selectedMonthKey = format(selectedMonthStart, 'yyyy-MM');
 
   // Fetch distinct L1 categories from ALL transactions
   const { data: distinctCategories = [] } = useQuery({
@@ -62,13 +67,16 @@ export function useBudgetData() {
     enabled: !!user,
   });
 
-  // Fetch transaction totals for last 4 months
+  // Fetch transaction totals for the selected month + 3 months prior
   const { data: txTotals = [] } = useQuery({
-    queryKey: ['budget-tx-totals', user?.id],
+    queryKey: ['budget-tx-totals', user?.id, selectedMonthKey],
     queryFn: async () => {
       if (!user) return [];
       const fromDate = format(threeMonthsAgoStart, 'yyyy-MM-dd');
-      
+      // End of selected month
+      const endOfSelected = new Date(selectedMonthStart.getFullYear(), selectedMonthStart.getMonth() + 1, 0);
+      const toDate = format(endOfSelected, 'yyyy-MM-dd');
+
       let allTx: any[] = [];
       let from = 0;
       const batchSize = 1000;
@@ -80,6 +88,7 @@ export function useBudgetData() {
           .eq('is_internal_transfer', false)
           .not('l1_category', 'in', `("Transfer — Internal","Income","Uncategorised","Indonesia — Uncategorised","Australia — Uncategorised")`)
           .gte('transaction_date', fromDate)
+          .lte('transaction_date', toDate)
           .range(from, from + batchSize - 1);
         if (error) throw error;
         allTx = allTx.concat(data || []);
@@ -98,11 +107,10 @@ export function useBudgetData() {
   }, [budgets]);
 
   const rows = useMemo((): BudgetRow[] => {
-    const thisMonthStr = format(thisMonthStart, 'yyyy-MM');
-    const lastMonthStr = format(lastMonthStart, 'yyyy-MM');
-    const m1 = format(subMonths(now, 1), 'yyyy-MM');
-    const m2 = format(subMonths(now, 2), 'yyyy-MM');
-    const m3 = format(subMonths(now, 3), 'yyyy-MM');
+    const thisMonthStr = selectedMonthKey;
+    const m1 = format(subMonths(selectedMonth, 1), 'yyyy-MM');
+    const m2 = format(subMonths(selectedMonth, 2), 'yyyy-MM');
+    const m3 = format(subMonths(selectedMonth, 3), 'yyyy-MM');
 
     // Group spending by category and month
     const categoryMonths = new Map<string, Map<string, number>>();
@@ -116,7 +124,6 @@ export function useBudgetData() {
       monthMap.set(month, (monthMap.get(month) || 0) + Math.abs(tx.amount_aud));
     });
 
-    // Build rows from distinct categories (derived from ALL transactions)
     const allCats = new Set<string>([
       ...distinctCategories,
       ...budgetMap.keys(),
@@ -129,7 +136,7 @@ export function useBudgetData() {
 
       const monthMap = categoryMonths.get(category) || new Map();
       const thisMonth = monthMap.get(thisMonthStr) || 0;
-      const lastMonth = monthMap.get(lastMonthStr) || 0;
+      const lastMonth = monthMap.get(m1) || 0;
       const avg3 = ([m1, m2, m3].reduce((sum, m) => sum + (monthMap.get(m) || 0), 0)) / 3;
 
       const budget = budgetMap.get(category) ?? null;
@@ -152,9 +159,8 @@ export function useBudgetData() {
 
     result.sort((a, b) => b.thisMonth - a.thisMonth);
     return result;
-  }, [txTotals, budgetMap, monthFraction, distinctCategories]);
+  }, [txTotals, budgetMap, monthFraction, distinctCategories, selectedMonthKey, selectedMonth]);
 
-  // Summary
   const summary = useMemo(() => {
     const totalBudgeted = rows.reduce((s, r) => s + (r.budget || 0), 0);
     const totalSpent = rows.reduce((s, r) => s + r.thisMonth, 0);
@@ -163,7 +169,6 @@ export function useBudgetData() {
     return { totalBudgeted, totalSpent, net, pctUsed };
   }, [rows]);
 
-  // Upsert budget
   const upsertBudget = useMutation({
     mutationFn: async ({ category, amount }: { category: string; amount: number }) => {
       if (!user) throw new Error('Not authenticated');
