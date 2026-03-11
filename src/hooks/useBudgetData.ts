@@ -78,8 +78,8 @@ export function useBudgetData() {
           .select('l1_category, amount_aud, transaction_date')
           .eq('user_id', user.id)
           .eq('is_internal_transfer', false)
+          .not('l1_category', 'in', `("Transfer — Internal","Income","Uncategorised","Indonesia — Uncategorised","Australia — Uncategorised")`)
           .gte('transaction_date', fromDate)
-          .lt('amount_aud', 0)
           .range(from, from + batchSize - 1);
         if (error) throw error;
         allTx = allTx.concat(data || []);
