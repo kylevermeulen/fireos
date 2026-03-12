@@ -107,8 +107,8 @@ export default function Index() {
     );
   }
 
-  // State machine for empty states
-  if (!hasAccounts) {
+  // State machine for empty states — only show if the relevant query finished loading
+  if (!accountsLoading && !hasAccounts) {
     return (
       <AppLayout>
         <div className="space-y-6">
@@ -133,7 +133,7 @@ export default function Index() {
     );
   }
 
-  if (!hasBalances) {
+  if (!balancesLoading && !hasBalances) {
     return (
       <AppLayout>
         <div className="space-y-6">
@@ -158,8 +158,8 @@ export default function Index() {
     );
   }
 
-  // If no data after all checks, show generic empty
-  if (!latestSnapshot || snapshots.length === 0) {
+  // If snapshots computed to empty after loading, show generic empty
+  if (!snapshotsLoading && (!latestSnapshot || snapshots.length === 0)) {
     return (
       <AppLayout>
         <div className="space-y-6">
