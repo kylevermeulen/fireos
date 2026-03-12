@@ -177,17 +177,7 @@ export default function Index() {
   const netCashflow = cashflowData?.netCashflow ?? 0;
   const cashflowPositive = netCashflow >= 0;
 
-  // === Card 3: Mortgage Progress ===
-  const offsetAccount = accounts?.find(a => a.name === 'Offset' && a.institution === 'Bank of Melbourne');
-  const offsetBalance = useMemo(() => {
-    if (!offsetAccount || !balances) return 0;
-    const accountBalances = balances
-      .filter(b => b.account_id === offsetAccount.id)
-      .sort((a, b) => a.balance_date.localeCompare(b.balance_date));
-    return accountBalances.length > 0 ? accountBalances[accountBalances.length - 1].amount_aud : 0;
-  }, [offsetAccount, balances]);
-
-  // Get total loan balance from liability data in snapshots
+  // === Card 3: Mortgage Progress (uses pre-computed offsetBalance) ===
   const totalLoanBalance = latestSnapshot.mortgageBalance;
   const netMortgage = latestSnapshot.mortgageNetOfOffset;
   const offsetPercent = totalLoanBalance > 0 ? Math.round((offsetBalance / totalLoanBalance) * 100) : 0;
