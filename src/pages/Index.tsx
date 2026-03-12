@@ -27,7 +27,8 @@ export default function Index() {
   const { data: balances, isLoading: balancesLoading } = useBalances();
   const { data: accounts, isLoading: accountsLoading } = useAccounts();
 
-  const isLoading = !sessionReady || snapshotsLoading || balancesLoading || accountsLoading;
+  // Only block on session — let individual sections handle their own loading
+  const isLoading = !sessionReady;
 
   // Filter snapshots by time range
   const filteredSnapshots = useMemo(() => {
