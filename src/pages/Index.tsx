@@ -200,7 +200,7 @@ export default function Index() {
     : null;
 
   // Prepare chart data
-  const netWorthChartData = filteredSnapshots.map(s => ({
+  const netWorthChartData = displaySnapshots.map(s => ({
     date: s.date,
     netWorth: s.netWorth,
     liquid: s.liquidWealth,
