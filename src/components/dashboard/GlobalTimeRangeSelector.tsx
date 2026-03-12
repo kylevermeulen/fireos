@@ -14,6 +14,7 @@ const presetRanges: { value: TimeRange; label: string }[] = [
   { value: '3M', label: '3M' },
   { value: '6M', label: '6M' },
   { value: '1Y', label: '1Y' },
+  { value: 'ALL', label: 'All' },
 ];
 
 export function GlobalTimeRangeSelector() {
