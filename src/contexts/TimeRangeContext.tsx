@@ -48,7 +48,7 @@ function getDateRangeFromPreset(range: TimeRange, custom: DateRange | null): Dat
 }
 
 export function TimeRangeProvider({ children }: { children: ReactNode }) {
-  const [timeRange, setTimeRange] = useState<TimeRange>('1M');
+  const [timeRange, setTimeRange] = useState<TimeRange>('ALL');
   const [customDateRange, setCustomDateRange] = useState<DateRange | null>(null);
 
   const effectiveDateRange = useMemo(() => {
