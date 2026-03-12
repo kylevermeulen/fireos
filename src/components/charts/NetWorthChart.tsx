@@ -65,6 +65,7 @@ export function NetWorthChart({ data, title = 'Net Worth Trend' }: NetWorthChart
                 tick={{ fontSize: 12 }}
                 tickLine={false}
                 axisLine={false}
+                interval={tickInterval}
                 className="text-muted-foreground"
               />
               <YAxis
