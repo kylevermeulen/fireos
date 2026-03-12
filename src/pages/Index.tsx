@@ -27,7 +27,8 @@ export default function Index() {
   const { data: balances, isLoading: balancesLoading } = useBalances();
   const { data: accounts, isLoading: accountsLoading } = useAccounts();
 
-  const isLoading = !sessionReady || snapshotsLoading || balancesLoading || accountsLoading;
+  // Only block on session — let individual sections handle their own loading
+  const isLoading = !sessionReady;
 
   // Filter snapshots by time range
   const filteredSnapshots = useMemo(() => {
@@ -80,8 +81,34 @@ export default function Index() {
     );
   }
 
-  // State machine for empty states
-  if (!hasAccounts) {
+  // Show skeleton while primary data is still loading (but session is ready)
+  const primaryDataLoading = snapshotsLoading && snapshots.length === 0;
+
+  if (primaryDataLoading) {
+    return (
+      <AppLayout>
+        <div className="space-y-6">
+          <div>
+            <h1 className="text-2xl font-bold tracking-tight">Dashboard</h1>
+            <p className="text-muted-foreground">Household wealth overview</p>
+          </div>
+          <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+            {[1, 2, 3, 4].map((i) => (
+              <Card key={i}>
+                <CardContent className="p-6">
+                  <Skeleton className="h-4 w-24 mb-2" />
+                  <Skeleton className="h-8 w-32" />
+                </CardContent>
+              </Card>
+            ))}
+          </div>
+        </div>
+      </AppLayout>
+    );
+  }
+
+  // State machine for empty states — only show if the relevant query finished loading
+  if (!accountsLoading && !hasAccounts) {
     return (
       <AppLayout>
         <div className="space-y-6">
@@ -106,7 +133,7 @@ export default function Index() {
     );
   }
 
-  if (!hasBalances) {
+  if (!balancesLoading && !hasBalances) {
     return (
       <AppLayout>
         <div className="space-y-6">
@@ -131,8 +158,8 @@ export default function Index() {
     );
   }
 
-  // If no data after all checks, show generic empty
-  if (!latestSnapshot || snapshots.length === 0) {
+  // If snapshots computed to empty after loading, show generic empty
+  if (!snapshotsLoading && (!latestSnapshot || snapshots.length === 0)) {
     return (
       <AppLayout>
         <div className="space-y-6">
