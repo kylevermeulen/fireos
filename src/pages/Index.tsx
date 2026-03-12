@@ -35,9 +35,10 @@ export default function Index() {
     return filterByTimeRange(snapshots, timeRange, customDateRange);
   }, [snapshots, timeRange, customDateRange]);
 
-  // Get latest and previous from filtered data
-  const latestSnapshot = filteredSnapshots.length > 0 ? filteredSnapshots[filteredSnapshots.length - 1] : null;
-  const previousSnapshot = filteredSnapshots.length > 1 ? filteredSnapshots[filteredSnapshots.length - 2] : null;
+  // Use filtered data for display, but fall back to all snapshots if filter is too narrow
+  const displaySnapshots = filteredSnapshots.length > 0 ? filteredSnapshots : snapshots;
+  const latestSnapshot = displaySnapshots.length > 0 ? displaySnapshots[displaySnapshots.length - 1] : null;
+  const previousSnapshot = displaySnapshots.length > 1 ? displaySnapshots[displaySnapshots.length - 2] : null;
 
   // Check for FX warnings (balances with null AUD)
   const fxWarnings = useMemo(() => {
