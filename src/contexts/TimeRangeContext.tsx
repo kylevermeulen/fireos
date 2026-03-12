@@ -82,7 +82,7 @@ export function filterByTimeRange<T extends { date: string }>(
   range: TimeRange,
   customRange: DateRange | null = null
 ): T[] {
-  if (data.length === 0) return data;
+  if (range === 'ALL' || data.length === 0) return data;
 
   const dateRange = getDateRangeFromPreset(range, customRange);
   const cutoffDate = dateRange.from;
