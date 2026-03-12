@@ -37,8 +37,11 @@ function getDateRangeFromPreset(range: TimeRange, custom: DateRange | null): Dat
     case '1Y':
       from.setFullYear(from.getFullYear() - 1);
       break;
+    case 'ALL':
+      from.setFullYear(2010); // Far enough back to capture all data
+      break;
     default:
-      from.setMonth(from.getMonth() - 1); // Default to 1M
+      from.setFullYear(2010); // Default to ALL
   }
 
   return { from, to };
