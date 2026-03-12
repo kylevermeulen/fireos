@@ -1,7 +1,7 @@
 import { createContext, useContext, useState, ReactNode, useMemo } from 'react';
 import { DateRange } from '@/types/cashflow';
 
-export type TimeRange = '1M' | '3M' | '6M' | '1Y' | 'custom';
+export type TimeRange = '1M' | '3M' | '6M' | '1Y' | 'ALL' | 'custom';
 
 interface TimeRangeContextType {
   timeRange: TimeRange;
