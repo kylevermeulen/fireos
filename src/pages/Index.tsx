@@ -55,6 +55,16 @@ export default function Index() {
   const firstDate = snapshots.length > 0 ? snapshots[0].date : null;
   const lastDate = snapshots.length > 0 ? snapshots[snapshots.length - 1].date : null;
 
+  // Mortgage offset calculation (must be before early returns)
+  const offsetAccount = accounts?.find(a => a.name === 'Offset' && a.institution === 'Bank of Melbourne');
+  const offsetBalance = useMemo(() => {
+    if (!offsetAccount || !balances) return 0;
+    const accountBalances = balances
+      .filter(b => b.account_id === offsetAccount.id)
+      .sort((a, b) => a.balance_date.localeCompare(b.balance_date));
+    return accountBalances.length > 0 ? accountBalances[accountBalances.length - 1].amount_aud : 0;
+  }, [offsetAccount, balances]);
+
   // Determine data state
   const hasAccounts = (accounts?.length ?? 0) > 0;
   const hasBalances = (balances?.length ?? 0) > 0;
