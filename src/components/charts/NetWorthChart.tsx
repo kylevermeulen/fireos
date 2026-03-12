@@ -23,6 +23,13 @@ interface NetWorthChartProps {
   title?: string;
 }
 
+// Compute adaptive tick interval based on data span
+function getTickInterval(dataLength: number): number {
+  if (dataLength <= 12) return 0; // Show every tick for ≤1Y
+  if (dataLength <= 36) return 2; // Quarterly for ≤3Y
+  return Math.max(Math.floor(dataLength / 12) - 1, 3); // ~Yearly for longer spans
+}
+
 export function NetWorthChart({ data, title = 'Net Worth Trend' }: NetWorthChartProps) {
   const chartData = useMemo(() => {
     return data.map((d) => ({
@@ -30,6 +37,8 @@ export function NetWorthChart({ data, title = 'Net Worth Trend' }: NetWorthChart
       dateLabel: formatDate(d.date, 'short'),
     }));
   }, [data]);
+
+  const tickInterval = useMemo(() => getTickInterval(chartData.length), [chartData.length]);
 
   return (
     <Card>
@@ -56,6 +65,7 @@ export function NetWorthChart({ data, title = 'Net Worth Trend' }: NetWorthChart
                 tick={{ fontSize: 12 }}
                 tickLine={false}
                 axisLine={false}
+                interval={tickInterval}
                 className="text-muted-foreground"
               />
               <YAxis

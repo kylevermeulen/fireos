@@ -1,7 +1,7 @@
 import { createContext, useContext, useState, ReactNode, useMemo } from 'react';
 import { DateRange } from '@/types/cashflow';
 
-export type TimeRange = '1M' | '3M' | '6M' | '1Y' | 'custom';
+export type TimeRange = '1M' | '3M' | '6M' | '1Y' | 'ALL' | 'custom';
 
 interface TimeRangeContextType {
   timeRange: TimeRange;
@@ -37,15 +37,18 @@ function getDateRangeFromPreset(range: TimeRange, custom: DateRange | null): Dat
     case '1Y':
       from.setFullYear(from.getFullYear() - 1);
       break;
+    case 'ALL':
+      from.setFullYear(2010); // Far enough back to capture all data
+      break;
     default:
-      from.setMonth(from.getMonth() - 1); // Default to 1M
+      from.setFullYear(2010); // Default to ALL
   }
 
   return { from, to };
 }
 
 export function TimeRangeProvider({ children }: { children: ReactNode }) {
-  const [timeRange, setTimeRange] = useState<TimeRange>('1M');
+  const [timeRange, setTimeRange] = useState<TimeRange>('ALL');
   const [customDateRange, setCustomDateRange] = useState<DateRange | null>(null);
 
   const effectiveDateRange = useMemo(() => {
@@ -79,7 +82,7 @@ export function filterByTimeRange<T extends { date: string }>(
   range: TimeRange,
   customRange: DateRange | null = null
 ): T[] {
-  if (data.length === 0) return data;
+  if (range === 'ALL' || data.length === 0) return data;
 
   const dateRange = getDateRangeFromPreset(range, customRange);
   const cutoffDate = dateRange.from;
