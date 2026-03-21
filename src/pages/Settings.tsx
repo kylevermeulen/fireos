@@ -373,7 +373,7 @@ export default function Settings() {
                          .from('transactions')
                          .select('id, description, merchant, counterparty, l1_category')
                          .eq('user_id', user.id)
-                         .or('l1_category.eq.Uncategorised,l1_category.is.null')
+                         .or('l1_category.eq.Uncategorised,l1_category.is.null,l1_category.eq.Indonesia — Uncategorised,l1_category.eq.Australia — Uncategorised')
                          .range(from, from + BATCH - 1);
                        if (error) throw error;
                        if (!batch || batch.length === 0) break;
